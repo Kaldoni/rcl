@@ -1,0 +1,79 @@
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, func
+from typing import List
+
+from app.core.database import get_db
+from app.core.security import get_current_admin
+from app.models.content import ContactSubmission, Service
+from app.models.user import User
+from app.schemas.schemas import ContactResponse, AdminStats
+
+router = APIRouter()
+
+
+@router.get("/stats", response_model=AdminStats)
+async def get_stats(
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(get_current_admin),
+):
+    total_msgs = await db.scalar(select(func.count()).select_from(ContactSubmission))
+    unread_msgs = await db.scalar(
+        select(func.count()).select_from(ContactSubmission).where(ContactSubmission.is_read == False)
+    )
+    total_svcs = await db.scalar(select(func.count()).select_from(Service))
+    active_svcs = await db.scalar(
+        select(func.count()).select_from(Service).where(Service.is_active == True)
+    )
+    return AdminStats(
+        total_messages=total_msgs or 0,
+        unread_messages=unread_msgs or 0,
+        total_services=total_svcs or 0,
+        active_services=active_svcs or 0,
+    )
+
+
+@router.get("/messages", response_model=List[ContactResponse])
+async def get_messages(
+    skip: int = 0,
+    limit: int = 50,
+    unread_only: bool = False,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(get_current_admin),
+):
+    query = select(ContactSubmission).order_by(ContactSubmission.created_at.desc())
+    if unread_only:
+        query = query.where(ContactSubmission.is_read == False)
+    query = query.offset(skip).limit(limit)
+    result = await db.execute(query)
+    return result.scalars().all()
+
+
+@router.patch("/messages/{message_id}/read", response_model=ContactResponse)
+async def mark_message_read(
+    message_id: int,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(get_current_admin),
+):
+    result = await db.execute(select(ContactSubmission).where(ContactSubmission.id == message_id))
+    msg = result.scalar_one_or_none()
+    if not msg:
+        raise HTTPException(status_code=404, detail="Message not found")
+    msg.is_read = True
+    await db.commit()
+    await db.refresh(msg)
+    return msg
+
+
+@router.delete("/messages/{message_id}", status_code=204)
+async def delete_message(
+    message_id: int,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(get_current_admin),
+):
+    result = await db.execute(select(ContactSubmission).where(ContactSubmission.id == message_id))
+    msg = result.scalar_one_or_none()
+    if not msg:
+        raise HTTPException(status_code=404, detail="Message not found")
+    await db.delete(msg)
+    await db.commit()

@@ -1,0 +1,93 @@
+'use client';
+import { useState } from 'react';
+import Navbar from '@/components/layout/Navbar';
+import Footer from '@/components/layout/Footer';
+
+export default function ContactPage() {
+  const [form, setForm] = useState({ name:'', company:'', email:'', phone:'', subject:'', message:'' });
+  const [status, setStatus] = useState<'idle'|'loading'|'success'|'error'>('idle');
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement|HTMLTextAreaElement|HTMLSelectElement>) =>
+    setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault(); setStatus('loading');
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/contact`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: form.name, email: form.email, phone: form.phone, subject: form.subject, message: form.message }),
+      });
+      if (!res.ok) throw new Error();
+      setStatus('success');
+      setForm({ name:'', company:'', email:'', phone:'', subject:'', message:'' });
+    } catch { setStatus('error'); }
+  };
+
+  return (
+    <>
+      <Navbar />
+      <main style={{ paddingTop: '72px' }}>
+        <div className="contact-page-wrap">
+          <div className="container">
+            <div className="contact-header">
+              <h1 className="contact-title">Get in Touch</h1>
+              <p className="contact-sub">Partner with Nigeria&apos;s leading oil and gas engineering services provider. We are ready to assist with your technical needs and service consultations.</p>
+            </div>
+            <div className="contact-grid">
+              {/* Left */}
+              <div>
+                <div className="info-card">
+                  <h2 className="info-card__title">Head Office Details</h2>
+                  {[
+                    { icon:'📍', label:'Address', value:'No. 7 Ezimgbu Cresent, Presidential estate, Phase IV, New GRA, Port-HArcourt, Nigeria' },
+                    { icon:'📞', label:'Phone Numbers', value:'+234 703 783 0548' },
+                    { icon:'✉️', label:'Email Addresses', value:'info@rewajcorporate.com' },
+                  ].map(item => (
+                    <div key={item.label} className="info-row">
+                      <div className="info-icon-wrap">{item.icon}</div>
+                      <div><strong>{item.label}</strong><p>{item.value}</p></div>
+                    </div>
+                  ))}
+                </div>
+                <div className="map-wrap">
+                  <iframe title="Location" src="https://maps.google.com/maps?q=Port+Harcourt+New+GRA+Nigeria&output=embed" width="100%" height="260" style={{ border:0, display:'block' }} allowFullScreen loading="lazy" />
+                </div>
+              </div>
+              {/* Right */}
+              <div className="form-panel">
+                <h2 className="form-title">Tell Us What You need</h2>
+                <p className="form-sub">Complete the form below and our team will reach out to you within 24 hours.</p>
+                {status === 'success' && <div className="alert alert--success">✅ Message sent! We will be in touch within 24 hours.</div>}
+                {status === 'error' && <div className="alert alert--error">❌ Something went wrong. Please try again.</div>}
+                <form onSubmit={handleSubmit}>
+                  <div className="form-row-2">
+                    <div className="form-group"><label>Full Name</label><input name="name" value={form.name} onChange={handleChange} placeholder="John Doe" required /></div>
+                    <div className="form-group"><label>Company Name</label><input name="company" value={form.company} onChange={handleChange} placeholder="Acme Energy" /></div>
+                  </div>
+                  <div className="form-row-2">
+                    <div className="form-group"><label>Email Address</label><input type="email" name="email" value={form.email} onChange={handleChange} placeholder="john@example.com" required /></div>
+                    <div className="form-group"><label>Phone Number</label><input name="phone" value={form.phone} onChange={handleChange} placeholder="+234 ..." /></div>
+                  </div>
+                  <div className="form-group">
+                    <label>Subject</label>
+                    <select name="subject" value={form.subject} onChange={handleChange} required>
+                      <option value="">Select a service</option>
+                      <option>Engineering &amp; Design</option>
+                      <option>Control Systems</option>
+                      <option>Procurement &amp; Supply</option>
+                      <option>Field Support</option>
+                      <option>General Inquiry</option>
+                    </select>
+                  </div>
+                  <div className="form-group"><label>Message Details</label><textarea name="message" value={form.message} onChange={handleChange} rows={5} placeholder="Briefly describe your requirements..." required /></div>
+                  <button type="submit" className="submit-btn" disabled={status === 'loading'}>
+                    {status === 'loading' ? 'Sending...' : 'Send Message ➤'}
+                  </button>
+                </form>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+      <Footer />
+    </>
+  );
+}
