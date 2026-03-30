@@ -54,7 +54,7 @@ export default function AboutPage() {
           <div className="container about-stats-grid">
             {stats.map((s, i) => (
               <div key={i} className="about-stat">
-                <span className="about-stat__icon">{s.icon}</span>
+                <span className="about-stat__icon"><s.Icon size={24} /></span>
                 <span className="about-stat__value">{s.value}</span>
                 <span className="about-stat__label">{s.label}</span>
               </div>

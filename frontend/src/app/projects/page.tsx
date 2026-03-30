@@ -14,8 +14,13 @@ const projects = [
   { id: 5, slug: 'gas-processing-plant-retrofit', category: 'Technical Services', tag: 'ENGINEERING', title: 'Gas Processing Plant Retrofit', desc: 'Full-scale electrical and mechanical retrofit of an aging natural gas processing facility to meet modern environmental standards.', year: '2021', image: '/images/project-gas.jpg' },
   { id: 6, slug: 'risk-assessment-audits', category: 'Technical Services', tag: 'CONSULTING', title: 'Risk Assessment Audits', desc: 'Delivering comprehensive HAZOP and SIL studies for multi-billion dollar brownfield expansion projects across the Niger Delta.', year: '2021', image: '/images/project-risk.jpg' },
 ];
-
-const clients = ['Total Energies', 'Shell', 'Renaissance Africa Energy', 'Seplat Energy', 'NLNG'];
+const clients = [
+  { name: 'Total Energies', logo: '/images/clients/total-energies.png' },
+  { name: 'Shell', logo: '/images/clients/shell.png' },
+  { name: 'Renaissance Africa Energy', logo: '/images/clients/renaissance.png' },
+  { name: 'Seplat Energy', logo: '/images/clients/seplat.png' },
+  { name: 'NLNG', logo: '/images/clients/NLNG.png' }
+];
 
 const tagColors: Record<string, string> = {
   'MAINTENANCE': '#FB0202',
@@ -107,8 +112,8 @@ export default function ProjectsPage() {
             <div className="clients-divider" />
             <div className="clients-logos">
               {clients.map(c => (
-                <div key={c} className="client-logo">
-                  <span>{c}</span>
+                <div key={c.name} className="client-logo">
+                  <img src={c.logo} alt={c.name} style={{ maxWidth: '100%', maxHeight: '80px', objectFit: 'contain' }} />
                 </div>
               ))}
             </div>
