@@ -84,7 +84,7 @@ a { text-decoration: none; color: inherit; }
 @media (max-width: 900px) { .navbar__links, .nav-cta { display: none !important; } .hamburger { display: flex; } }
 
 /* ── Shared Buttons ── */
-.btn-red {
+.btn-red, .btn, .btn--red {
   display: inline-flex; align-items: center; gap: 8px;
   background: var(--red); color: var(--white);
   font-family: var(--font-ui); font-weight: 600; font-size: 14px;
@@ -92,7 +92,7 @@ a { text-decoration: none; color: inherit; }
   border: none; cursor: pointer; transition: all 0.2s;
   text-decoration: none;
 }
-.btn-red:hover { background: var(--red-hover); transform: translateY(-1px); }
+.btn-red:hover, .btn:hover, .btn--red:hover { background: var(--red-hover); transform: translateY(-1px); }
 
 .btn-outline-white {
   display: inline-flex; align-items: center; gap: 8px;
@@ -283,7 +283,7 @@ a { text-decoration: none; color: inherit; }
 .cta-banner__sub { font-size: 16px; color: rgba(255,255,255,0.65); max-width: 520px; margin: 0 auto 36px; line-height: 1.7; }
 
 /* ── About Page ── */
-.about-hero { position: relative; min-height: 380px; display: flex; align-items: center; background: url('/images/refinery-bg.jpg') center/cover no-repeat; }
+.about-hero { position: relative; min-height: 380px; display: flex; align-items: center; background: url('/team-offshore.jpg') center/cover no-repeat; }
 .about-hero__overlay { position: absolute; inset: 0; background: linear-gradient(105deg, rgba(15,23,42,0.85) 0%, rgba(15,23,42,0.6) 100%); }
 .about-hero__content { position: relative; z-index: 1; padding: 80px 0; }
 .about-hero__title { font-family: var(--font-display); font-size: clamp(36px,5vw,60px); font-weight: 800; color: var(--white); text-transform: uppercase; line-height: 1.1; margin-bottom: 16px; }
@@ -517,7 +517,7 @@ body, body * { text-transform: none !important; }
 @media (max-width: 1024px) { .article-layout { grid-template-columns: 1fr; } .article-sidebar { position: static; } }
 
 /* ── Services Page ── */
-.services-page-hero { position: relative; background: url('/services.png') center/cover no-repeat; padding: 100px 0; border-bottom: 3px solid var(--red); }
+.services-page-hero { position: relative; background: url('/hero-offshore.png') center/cover no-repeat; padding: 100px 0; border-bottom: 3px solid var(--red); }
 .services-page-hero::before { content: ''; position: absolute; inset: 0; background: linear-gradient(110deg, rgba(15,23,42,0.84) 0%, rgba(15,23,42,0.68) 45%, rgba(15,23,42,0.46) 100%); z-index: 1; }
 .services-page-hero > .container { position: relative; z-index: 2; }
 .services-page-hero .eyebrow { color: var(--red); }

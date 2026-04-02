@@ -124,9 +124,12 @@ export default function ProjectsPage() {
         <section className="projects-cta">
           <div className="projects-cta__bg" />
           <div className="container projects-cta__inner">
-            <h2>Ready to start your next project with us?</h2>
-            <p>Our team of certified engineers is ready to provide the technical expertise and operational excellence your facility deserves.</p>
-            <Link href="/contact" className="btn btn--red">Get a quote</Link>
+            <h2 className="projects-cta__title">Ready to start your next project with us?</h2>
+            <br />
+            <p>Our team of certified engineers is ready to provide the technical <br />expertise and operational excellence your facility deserves.</p>
+            <br />
+            <br />
+            <Link href="/contact" className="btn-red">Get a quote</Link>
           </div>
         </section>
 

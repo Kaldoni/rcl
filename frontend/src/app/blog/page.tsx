@@ -13,10 +13,7 @@ const recentPosts = [
   { title:'Training the Next Generation of Nigerian Welders', date:'OCT 05, 2023', slug:'training-nigerian-welders' },
   { title:'RCL Receives Best Safety Record Award 2023', date:'SEP 28, 2023', slug:'rcl-best-safety-record-2023' },
 ];
-const articles = [
-  { slug:'role-of-technology-oil-gas-safety', category:'INDUSTRY TRENDS', date:'October 24, 2023', title:'The Role of Technology in Improving Safety and Efficiency in the Oil and Gas Industry', excerpt:'The oil and gas industry has always been crucial for powering industries, transportation, and economic growth. Modern digital monitoring systems, smart sensors, and automated control technologies have fundamentally transformed how operations are conducted. Today, engineers can monitor these systems from centralized control rooms and receive immediate alerts if abnormal conditions occur.', author:'Asaba Oghenegoma Godspower' },
-  { slug:'local-content-development-nigeria', category:'COMPANY UPDATES', date:'October 10, 2023', title:'How Rewaj is Championing Local Content Development in Nigeria', excerpt:'Since our founding in 2001, Rewaj Corporate Limited has been at the forefront of building local capacity in the Nigerian oil and gas sector. Our commitment to training Nigerian engineers and technicians has resulted in a workforce that rivals international standards.', author:'Lanre Olasupo' },
-];
+import { articles } from '@/data/blog';
 
 export default function BlogPage() {
   const [email, setEmail] = useState('');
@@ -38,7 +35,7 @@ export default function BlogPage() {
             <div>
               {articles.map(article => (
                 <article key={article.slug} className="article-card">
-                  <div className="article-card__image"><img src="/images/blog-featured.jpg" alt={article.title} /></div>
+                  <div className="article-card__image"><img src={article.image} alt={article.title} /></div>
                   <div className="article-card__body">
                     <div className="article-meta">
                       <span className="article-category">{article.category}</span>

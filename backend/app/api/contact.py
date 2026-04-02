@@ -13,8 +13,7 @@ async def submit_contact(data: ContactCreate, db: AsyncSession = Depends(get_db)
     await db.commit()
     await db.refresh(submission)
 
-    # TODO: Send email notification via SendGrid
-    # from app.core.email import send_contact_notification
-    # await send_contact_notification(submission)
+    from app.core.email import send_contact_notification
+    await send_contact_notification(submission)
 
     return {"message": "Message received. We'll be in touch within 24 hours.", "id": submission.id}

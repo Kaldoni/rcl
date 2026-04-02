@@ -93,7 +93,10 @@ export default function AdminDashboard() {
 
       <div className="main">
         <header className="topbar">
-          <div className="tlogo"><span style={{color:'#FB0202',fontSize:'16px'}}>▼</span><span className="tbrand"><strong>REWAJ</strong> <span style={{color:'#FB0202'}}>CORPORATE LIMITED</span></span></div>
+          <div className="tlogo" style={{display:'flex',alignItems:'center',gap:'10px'}}>
+            <img src="/logo.png" alt="RCL Logo" style={{height:'32px',width:'auto',objectFit:'contain'}} />
+            <span className="tbrand"><strong>REWAJ</strong> <span style={{color:'#FB0202'}}>CORPORATE LIMITED</span></span>
+          </div>
           <div className="tsearch"><span>🔍</span><input type="search" placeholder="Search data..."/></div>
           <div className="tactions"><button className="ibtn">🔔</button><button className="ibtn">❓</button><button className="pbtn" onClick={logout}>Profile Settings ▾</button></div>
         </header>
