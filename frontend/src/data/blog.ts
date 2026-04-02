@@ -37,7 +37,7 @@ export const articles: Article[] = [
     excerpt: 'Since our founding in 2001, Rewaj Corporate Limited has been at the forefront of building local capacity in the Nigerian oil and gas sector. Our commitment to training Nigerian engineers and technicians has resulted in a workforce that rivals international standards.',
     author: 'Lanre Olasupo',
     authorRole: 'Human Resources Manager, Rewaj Corporate Limited',
-    image: '/images/team-offshore.jpg',
+    image: '/team-offshore.jpg',
     content: `
       <p>Since our founding in 2001, Rewaj Corporate Limited has been at the forefront of building local capacity in the Nigerian oil and gas sector. Our commitment to training Nigerian engineers and technicians has resulted in a workforce that rivals international standards.</p>
       <p>We believe that the sustainability of the Nigerian energy sector depends on our ability to develop and retain high-quality local talent. That's why we invest heavily in certification programs, hands-on field training, and partnerships with local technical colleges.</p>
