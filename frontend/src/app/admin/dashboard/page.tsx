@@ -2,19 +2,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 
-interface Stats { total_messages: number; unread_messages: number; total_services: number; active_services: number; }
+interface Stats { total_messages: number; unread_messages: number; total_articles: number; total_projects: number; }
 interface Message { id: number; name: string; email: string; phone?: string; subject?: string; message: string; is_read: boolean; created_at: string; }
+interface Article { id: number; title: string; category: string; is_published: boolean; created_at: string; }
+interface Project { id: number; title: string; category: string; is_active: boolean; completion_year: string; }
 
-const ARTICLES = [
-  { id:1, title:'Future of Sustainable Architecture', category:'INSIGHTS', status:'Published', date:'Oct 12, 2023' },
-  { id:2, title:'Modernist Revivals in Urban Areas', category:'DESIGN', status:'Draft', date:'2 days ago' },
-  { id:3, title:'Rewaj Annual Corporate Report', category:'CORPORATE', status:'Published', date:'Nov 05, 2023' },
-];
-const INBOX_ITEMS = [
-  { id:1, initials:'JD', name:'John Doe', email:'j.doe@architects.com', time:'2m ago', preview:'Looking for a partnership on the upcoming Downtown project. Can we...', tags:['PARTNERSHIP','URGENT'] },
-  { id:2, initials:'AS', name:'Alice Smith', email:'alice@visionary.io', time:'1h ago', preview:'Requested a quote for the structural analysis...', tags:['QUOTE REQ'] },
-  { id:3, initials:'MR', name:'Mark Robert', email:'m.robert@gmail.com', time:'5h ago', preview:'Interested in the junior consultant position advertised...', tags:['CAREERS'] },
-];
 const TAG_COLORS: Record<string,string> = { PARTNERSHIP:'#10B981', URGENT:'#EF4444', 'QUOTE REQ':'#F97316', CAREERS:'#6366F1' };
 
 export default function AdminDashboard() {
@@ -22,6 +14,8 @@ export default function AdminDashboard() {
   const [activeNav, setActiveNav] = useState('Dashboard');
   const [stats, setStats] = useState<Stats|null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
+  const [articles, setArticles] = useState<Article[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedMsg, setSelectedMsg] = useState<Message|null>(null);
   const [projectForm, setProjectForm] = useState({title:'',client:'',description:''});
@@ -34,13 +28,17 @@ export default function AdminDashboard() {
   const fetchData = useCallback(async () => {
     if(!token()){router.push('/admin');return;}
     try {
-      const [sRes,mRes] = await Promise.all([
+      const [sRes, mRes, aRes, pRes] = await Promise.all([
         fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/stats`,{headers:hdrs()}),
         fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/messages`,{headers:hdrs()}),
+        fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/blog`,{headers:hdrs()}),
+        fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/projects`,{headers:hdrs()}),
       ]);
       if(sRes.status===401){router.push('/admin');return;}
       setStats(await sRes.json());
       setMessages(await mRes.json());
+      setArticles(await aRes.json());
+      setProjects(await pRes.json());
     } catch(e){} finally{setLoading(false);}
   },[router,hdrs]);
 
@@ -53,10 +51,22 @@ export default function AdminDashboard() {
     if(stats) setStats(p=>p?{...p,unread_messages:Math.max(0,p.unread_messages-1)}:null);
   };
   const deleteMsg = async (id:number) => {
+    if(!confirm('Are you sure you want to delete this message?')) return;
     await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/messages/${id}`,{method:'DELETE',headers:hdrs()});
     setMessages(prev=>prev.filter(m=>m.id!==id));
     if(selectedMsg?.id===id) setSelectedMsg(null);
   };
+  const deleteArticle = async (id:number) => {
+    if(!confirm('Delete this article?')) return;
+    await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/blog/${id}`,{method:'DELETE',headers:hdrs()});
+    setArticles(prev=>prev.filter(a=>a.id!==id));
+  };
+  const deleteProject = async (id:number) => {
+    if(!confirm('Delete this project?')) return;
+    await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/projects/${id}`,{method:'DELETE',headers:hdrs()});
+    setProjects(prev=>prev.filter(p=>p.id!==id));
+  };
+
   const logout = () => {localStorage.removeItem('rcl_token');localStorage.removeItem('rcl_user');router.push('/admin');};
 
   const navItems = [
@@ -76,7 +86,13 @@ export default function AdminDashboard() {
     <div className="admin">
       <aside className="sidebar">
         <div className="sidebar__top">
-          <div className="user-info"><div className="avatar">A</div><div><p className="uname">Rewaj Admin</p><p className="urole">CORPORATE PORTAL</p></div></div>
+          <div className="user-info">
+            <div className="avatar">R</div>
+            <div>
+              <p className="uname">Rewaj Admin</p>
+              <p className="urole">Super Administrator</p>
+            </div>
+          </div>
         </div>
         <nav className="snav">
           {navItems.map(item=>(
@@ -87,7 +103,7 @@ export default function AdminDashboard() {
           ))}
         </nav>
         <div className="sidebar__bottom">
-          <div className="user-info"><div className="avatar sm">A</div><div><p className="uname">Admin User</p><p className="urole">Super Admin</p></div></div>
+          <button className="logout-trigger" onClick={logout}>Sign Out →</button>
         </div>
       </aside>
 
@@ -98,7 +114,7 @@ export default function AdminDashboard() {
             <span className="tbrand"><strong>REWAJ</strong> <span style={{color:'#FB0202'}}>CORPORATE LIMITED</span></span>
           </div>
           <div className="tsearch"><span>🔍</span><input type="search" placeholder="Search data..."/></div>
-          <div className="tactions"><button className="ibtn">🔔</button><button className="ibtn">❓</button><button className="pbtn" onClick={logout}>Profile Settings ▾</button></div>
+          <div className="tactions"><button className="ibtn">🔔</button><button className="ibtn">❓</button><button className="pbtn" onClick={logout}>{userEmail()} ▾</button></div>
         </header>
 
         <div className="content">
@@ -106,55 +122,43 @@ export default function AdminDashboard() {
             <div>
               <div className="cheader"><div><h1 className="ctitle">Dashboard Overview</h1><p className="csub">Real-time performance metrics and quick management tools.</p></div><button className="btnprimary" onClick={()=>setActiveNav('Articles')}>+ Add New Article</button></div>
               <div className="srow">
-                <div className="sbox"><div><p className="slabel">TOTAL ARTICLES</p><p className="sval">{stats?.total_services||124}</p><p className="strend">↗ +12% this month</p></div><div className="sicon sicon--o">📄</div></div>
-                <div className="sbox"><div><p className="slabel">TOTAL PROJECTS</p><p className="sval">{stats?.active_services||48}</p><p className="strend" style={{color:'#10B981'}}>✓ 8 Active now</p></div><div className="sicon sicon--b">📋</div></div>
-                <div className="sbox"><div><p className="slabel">NEW NOTIFICATIONS</p><p className="sval">{String(stats?.unread_messages||9).padStart(2,'0')}</p><p className="strend" style={{color:'#EF4444'}}>! Needs response</p></div><div className="sicon sicon--r">✉️</div></div>
+                <div className="sbox"><div><p className="slabel">TOTAL ARTICLES</p><p className="sval">{stats?.total_articles||0}</p><p className="strend">Live database count</p></div><div className="sicon sicon--o">📄</div></div>
+                <div className="sbox"><div><p className="slabel">TOTAL PROJECTS</p><p className="sval">{stats?.total_projects||0}</p><p className="strend" style={{color:'#10B981'}}>Portfolio active</p></div><div className="sicon sicon--b">📋</div></div>
+                <div className="sbox"><div><p className="slabel">NEW MESSAGES</p><p className="sval">{String(stats?.unread_messages||0).padStart(2,'0')}</p><p className="strend" style={{color:'#EF4444'}}>Requires response</p></div><div className="sicon sicon--r">✉️</div></div>
               </div>
               <div className="dgrid">
                 <div className="panel">
-                  <div className="ph"><h3 className="ptitle">MANAGE BLOG ARTICLES</h3><span className="live">● LIVE UPDATES</span></div>
+                  <div className="ph"><h3 className="ptitle">RECENT ARTICLES</h3><span className="live">● LIVE</span></div>
                   <table className="atable">
                     <thead><tr><th>ARTICLE TITLE</th><th>CATEGORY</th><th>STATUS</th><th>ACTIONS</th></tr></thead>
-                    <tbody>{ARTICLES.map(a=>(
-                      <tr key={a.id}>
-                        <td><p className="atitle">{a.title}</p><p className="adate">{a.status==='Published'?`Published ${a.date}`:`Draft saved ${a.date}`}</p></td>
-                        <td><span className="cpill">{a.category}</span></td>
-                        <td><span className={`spill spill--${a.status==='Published'?'pub':'draft'}`}>● {a.status}</span></td>
-                        <td><button className="dicon">🗑</button></td>
-                      </tr>
-                    ))}</tbody>
+                    <tbody>
+                      {articles.slice(0, 3).map(a=>(
+                        <tr key={a.id}>
+                          <td><p className="atitle">{a.title}</p><p className="adate">{new Date(a.created_at).toLocaleDateString()}</p></td>
+                          <td><span className="cpill">{a.category}</span></td>
+                          <td><span className={`spill spill--${a.is_published?'pub':'draft'}`}>● {a.is_published?'Published':'Draft'}</span></td>
+                          <td><button className="dicon" onClick={()=>deleteArticle(a.id)}>🗑</button></td>
+                        </tr>
+                      ))}
+                      {articles.length===0 && <tr><td colSpan={4} style={{padding:'20px',textAlign:'center',color:'#94A3B8'}}>No articles found.</td></tr>}
+                    </tbody>
                   </table>
                 </div>
                 <div className="ipanel">
-                  <div className="ph"><h3 className="ptitle">INBOUND CONTACTS</h3><span className="ibadge">{stats?.unread_messages||4}</span></div>
+                  <div className="ph"><h3 className="ptitle">RECENT INBOX</h3><span className="ibadge">{stats?.unread_messages||0}</span></div>
                   <div>
-                    {INBOX_ITEMS.map(item=>(
-                      <div key={item.id} className="iitem">
-                        <div className="iavatar">{item.initials}</div>
+                    {messages.slice(0, 3).map(msg=>(
+                      <div key={msg.id} className="iitem" onClick={()=>{setSelectedMsg(msg);setActiveNav('Inbox');}}>
+                        <div className="iavatar">{msg.name[0]}</div>
                         <div className="ibody">
-                          <div className="imeta"><div><p className="iname">{item.name}</p><p className="iemail">{item.email}</p></div><span className="itime">{item.time}</span></div>
-                          <p className="ipreview">{item.preview}</p>
-                          <div className="itags">{item.tags.map(t=><span key={t} className="itag" style={{background:TAG_COLORS[t]+'20',color:TAG_COLORS[t]}}>{t}</span>)}</div>
+                          <div className="imeta"><div><p className="iname">{msg.name}</p><p className="iemail">{msg.email}</p></div><span className="itime">{new Date(msg.created_at).toLocaleDateString()}</span></div>
+                          <p className="ipreview">{msg.message.substring(0, 70)}...</p>
                         </div>
                       </div>
                     ))}
+                    {messages.length===0 && <p style={{padding:'20px',textAlign:'center',color:'#94A3B8'}}>Inbox is empty.</p>}
                   </div>
                   <button className="valltbn" onClick={()=>setActiveNav('Inbox')}>VIEW ALL NOTIFICATIONS</button>
-                  <div className="protip">
-                    <p className="ptiptitle">Pro Tip:</p>
-                    <p className="ptiptext">Use the Articles dashboard to schedule future posts. Keeping a consistent content cadence improves portal SEO by 40%.</p>
-                    <button className="learnbtn">LEARN MORE</button>
-                  </div>
-                </div>
-              </div>
-              <div className="panel" style={{marginTop:'20px'}}>
-                <div className="ph"><h3 className="ptitle">ADD NEW PROJECT UPDATE</h3></div>
-                <div className="pform">
-                  <div className="fr2"><div className="fgroup"><label>PROJECT TITLE</label><input value={projectForm.title} onChange={e=>setProjectForm(p=>({...p,title:e.target.value}))} placeholder="e.g. Skyline Residency Phase II"/></div><div className="fgroup"><label>CLIENT NAME</label><input value={projectForm.client} onChange={e=>setProjectForm(p=>({...p,client:e.target.value}))} placeholder="e.g. Global Tech Park Ltd"/></div></div>
-                  <div className="fgroup"><label>UPDATE DESCRIPTION</label><textarea value={projectForm.description} onChange={e=>setProjectForm(p=>({...p,description:e.target.value}))} rows={4} placeholder="Detailed project status and milestones..."/></div>
-                  <div className="fgroup"><label>PROJECT VISUAL</label><div className="upzone"><span style={{fontSize:'28px',display:'block',marginBottom:'6px'}}>☁</span><p>Click to upload or drag and drop image (JPG, PNG)</p></div></div>
-                  <button className="publishbtn" onClick={()=>{setNotification('Project published!');setTimeout(()=>setNotification(''),3000);}}>Publish Project Update</button>
-                  {notification&&<p style={{color:'#10B981',marginTop:'10px',fontSize:'14px',fontWeight:600}}>✅ {notification}</p>}
                 </div>
               </div>
             </div>
@@ -193,8 +197,19 @@ export default function AdminDashboard() {
               <div className="cheader"><div><h1 className="ctitle">Blog Articles</h1><p className="csub">Manage all website articles.</p></div><button className="btnprimary">+ New Article</button></div>
               <div className="panel">
                 <table className="atable" style={{width:'100%'}}>
-                  <thead><tr><th>ARTICLE TITLE</th><th>CATEGORY</th><th>STATUS</th><th>DATE</th><th></th></tr></thead>
-                  <tbody>{ARTICLES.map(a=><tr key={a.id}><td><p className="atitle">{a.title}</p></td><td><span className="cpill">{a.category}</span></td><td><span className={`spill spill--${a.status==='Published'?'pub':'draft'}`}>● {a.status}</span></td><td style={{fontSize:'13px',color:'#94A3B8'}}>{a.date}</td><td><button className="dicon">🗑</button></td></tr>)}</tbody>
+                  <thead><tr><th>ARTICLE TITLE</th><th>CATEGORY</th><th>STATUS</th><th>DATE</th><th>ACTIONS</th></tr></thead>
+                  <tbody>
+                    {articles.map(a=>(
+                      <tr key={a.id}>
+                        <td><p className="atitle">{a.title}</p></td>
+                        <td><span className="cpill">{a.category}</span></td>
+                        <td><span className={`spill spill--${a.is_published?'pub':'draft'}`}>● {a.is_published?'Published':'Draft'}</span></td>
+                        <td style={{fontSize:'13px',color:'#94A3B8'}}>{new Date(a.created_at).toLocaleDateString()}</td>
+                        <td><button className="dicon" onClick={()=>deleteArticle(a.id)}>🗑</button></td>
+                      </tr>
+                    ))}
+                    {articles.length===0 && <tr><td colSpan={5} style={{padding:'40px',textAlign:'center',color:'#94A3B8'}}>No articles in database.</td></tr>}
+                  </tbody>
                 </table>
               </div>
             </div>
@@ -203,7 +218,23 @@ export default function AdminDashboard() {
           {activeNav==='Projects'&&(
             <div>
               <div className="cheader"><div><h1 className="ctitle">Projects</h1><p className="csub">Manage portfolio projects.</p></div><button className="btnprimary">+ New Project</button></div>
-              <div className="panel"><p style={{padding:'32px',color:'#94A3B8',textAlign:'center',fontSize:'14px'}}>Connect to the API to manage projects dynamically.</p></div>
+              <div className="panel">
+                <table className="atable" style={{width:'100%'}}>
+                  <thead><tr><th>PROJECT TITLE</th><th>CATEGORY</th><th>YEAR</th><th>STATUS</th><th>ACTIONS</th></tr></thead>
+                  <tbody>
+                    {projects.map(p=>(
+                      <tr key={p.id}>
+                        <td><p className="atitle">{p.title}</p></td>
+                        <td><span className="cpill">{p.category}</span></td>
+                        <td style={{fontSize:'13px',color:'#94A3B8'}}>{p.completion_year}</td>
+                        <td><span className={`spill spill--${p.is_active?'pub':'draft'}`}>● {p.is_active?'Active':'Inactive'}</span></td>
+                        <td><button className="dicon" onClick={()=>deleteProject(p.id)}>🗑</button></td>
+                      </tr>
+                    ))}
+                    {projects.length===0 && <tr><td colSpan={5} style={{padding:'40px',textAlign:'center',color:'#94A3B8'}}>No projects found.</td></tr>}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
 
@@ -212,9 +243,9 @@ export default function AdminDashboard() {
               <div className="cheader"><div><h1 className="ctitle">Settings</h1><p className="csub">Manage account and website settings.</p></div></div>
               <div className="panel" style={{padding:'32px'}}>
                 <h3 style={{fontFamily:'var(--font-display)',fontSize:'18px',fontWeight:800,marginBottom:'20px',color:'var(--text-heading)'}}>Account Information</h3>
-                <div className="fr2"><div className="fgroup"><label>Email Address</label><input defaultValue={userEmail()||'admin@rewajcorporate.com'}/></div><div className="fgroup"><label>Full Name</label><input defaultValue="Admin User"/></div></div>
-                <div className="fgroup"><label>New Password</label><input type="password" placeholder="••••••••"/></div>
-                <button className="btnprimary" style={{marginTop:'8px'}}>Save Changes</button>
+                <div className="fr2"><div className="fgroup"><label>Email Address</label><input defaultValue={userEmail()||'admin@rewajcorporate.com'} readOnly /></div><div className="fgroup"><label>Full Name</label><input defaultValue="Admin User" readOnly /></div></div>
+                <div className="fgroup"><label>Change Password (Coming Soon)</label><input type="password" placeholder="••••••••" disabled /></div>
+                <button className="btnprimary" style={{marginTop:'8px', opacity: 0.5, cursor: 'not-allowed'}}>Save Changes</button>
                 <div style={{marginTop:'32px',paddingTop:'32px',borderTop:'1px solid var(--border)'}}>
                   <h3 style={{fontFamily:'var(--font-display)',fontSize:'18px',fontWeight:800,marginBottom:'16px',color:'#EF4444'}}>Danger Zone</h3>
                   <button onClick={logout} style={{background:'none',border:'1.5px solid #EF4444',color:'#EF4444',padding:'10px 24px',borderRadius:'4px',fontWeight:600,cursor:'pointer',fontSize:'14px',transition:'all 0.2s'}}>Sign Out</button>

@@ -6,6 +6,7 @@ from typing import List
 from app.core.database import get_db
 from app.core.security import get_current_admin
 from app.models.content import ContactSubmission, Service
+from app.models.blog_project import BlogPost, Project
 from app.models.user import User
 from app.schemas.schemas import ContactResponse, AdminStats
 
@@ -21,15 +22,14 @@ async def get_stats(
     unread_msgs = await db.scalar(
         select(func.count()).select_from(ContactSubmission).where(ContactSubmission.is_read == False)
     )
-    total_svcs = await db.scalar(select(func.count()).select_from(Service))
-    active_svcs = await db.scalar(
-        select(func.count()).select_from(Service).where(Service.is_active == True)
-    )
+    total_articles = await db.scalar(select(func.count()).select_from(BlogPost))
+    total_projects = await db.scalar(select(func.count()).select_from(Project))
+    
     return AdminStats(
         total_messages=total_msgs or 0,
         unread_messages=unread_msgs or 0,
-        total_services=total_svcs or 0,
-        active_services=active_svcs or 0,
+        total_articles=total_articles or 0,
+        total_projects=total_projects or 0,
     )
 
 

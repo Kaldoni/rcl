@@ -67,7 +67,9 @@ export default function BlogArticlePage({ params }: { params: { slug: string } }
               <h3 className="sidebar-title"><span className="sidebar-title__bar" />Recent Posts</h3>
               {articles.slice(0, 3).map(p => (
                 <Link key={p.slug} href={`/blog/${p.slug}`} className="recent-item">
-                  <div className="recent-img" style={{ background: `url(${p.image}) center/cover` }} />
+                  <div className="recent-img">
+                    <img src={p.image} alt={p.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  </div>
                   <div>
                     <span className="recent-title">{p.title}</span>
                     <span className="recent-date">{p.date}</span>

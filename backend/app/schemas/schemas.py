@@ -8,8 +8,9 @@ class ContactCreate(BaseModel):
     name: str = Field(..., min_length=2, max_length=255)
     email: EmailStr
     phone: Optional[str] = Field(None, max_length=50)
+    company: Optional[str] = Field(None, max_length=255)
     subject: Optional[str] = Field(None, max_length=255)
-    message: str = Field(..., min_length=10)
+    message: str = Field(..., min_length=5)
 
 class ContactResponse(BaseModel):
     id: int
@@ -68,5 +69,5 @@ class ServiceResponse(BaseModel):
 class AdminStats(BaseModel):
     total_messages: int
     unread_messages: int
-    total_services: int
-    active_services: int
+    total_articles: int
+    total_projects: int

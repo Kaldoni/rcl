@@ -8,6 +8,7 @@ class ContactSubmission(Base):
     name = Column(String(255), nullable=False)
     email = Column(String(255), nullable=False, index=True)
     phone = Column(String(50))
+    company = Column(String(255))
     subject = Column(String(255))
     message = Column(Text, nullable=False)
     is_read = Column(Boolean, default=False)

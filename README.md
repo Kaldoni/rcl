@@ -1,6 +1,6 @@
 # Rewaj Corporate Limited — Full Stack Website
 
-> **Stack:** Next.js 14 (React, TypeScript) + FastAPI (Python) + PostgreSQL
+> **Stack:** Next.js 14 (React, TypeScript) + FastAPI (Python) + SQLite (Local) / PostgreSQL (Prod)
 
 ---
 
@@ -48,8 +48,9 @@ rcl-website/
     │       ├── contact.py             ← Contact form submission
     │       ├── services.py            ← Services CRUD
     │       └── admin.py               ← Admin stats + messages
-    ├── requirements.txt
-    └── .env.example
+│   ├── seed_content.py            ← Database seeder (Admin + Blog + Projects)
+│   ├── requirements.txt
+│   └── .env.example
 ```
 
 ---
@@ -63,14 +64,8 @@ rcl-website/
 
 ---
 
-### 1. Database Setup
-
-```bash
-# Create the database
-psql -U postgres
-CREATE DATABASE rewaj_db;
-\q
-```
+### 1. Database Setup (Local)
+Local development uses **SQLite**. The database file (`rewaj.db`) is automatically created when you run the seeding script.
 
 ---
 
@@ -97,13 +92,13 @@ uvicorn app.main:app --reload --port 8000
 The API will be live at: **http://localhost:8000**
 Interactive docs at: **http://localhost:8000/docs**
 
-#### Seed the Admin Account
-After the backend is running, call this endpoint **once**:
+#### Seed the Database (Admin + Content)
+Run the seeding script to create the database tables, default admin, and initial blog/project content:
 ```bash
-curl -X POST http://localhost:8000/api/auth/seed-admin
+python seed_content.py
 ```
 This creates the default admin: `admin@rewajcorporate.com` / `ChangeMe123!`
-> ⚠️ Change the password immediately after first login by updating `.env`
+> ⚠️ Note: For local development, the `DATABASE_URL` in `.env` should point to `sqlite+aiosqlite:///./rewaj.db`
 
 ---
 

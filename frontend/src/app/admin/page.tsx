@@ -34,9 +34,9 @@ export default function AdminLoginPage() {
   return (
     <div className="admin-login-page">
       <div className="login-card">
-        <div className="login-logo">
-          <span style={{ color: '#FB0202', fontSize: '22px' }}>▼</span>
-          <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: '15px', fontWeight: 800, letterSpacing: '0.08em', color: '#0F172A' }}>
+        <div className="login-logo" style={{display:'flex',alignItems:'center',gap:'10px',justifyContent:'center',marginBottom:'24px'}}>
+          <img src="/logo.png" alt="RCL Logo" style={{height:'40px',width:'auto'}} />
+          <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: '18px', fontWeight: 800, letterSpacing: '0.08em', color: '#0F172A' }}>
             <strong>REWAJ</strong> <span style={{ color: '#FB0202' }}>ADMIN</span>
           </span>
         </div>

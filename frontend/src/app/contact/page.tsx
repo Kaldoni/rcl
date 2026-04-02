@@ -13,7 +13,14 @@ export default function ContactPage() {
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/contact`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: form.name, email: form.email, phone: form.phone, subject: form.subject, message: form.message }),
+        body: JSON.stringify({ 
+          name: form.name, 
+          email: form.email, 
+          phone: form.phone, 
+          company: form.company,
+          subject: form.subject, 
+          message: form.message 
+        }),
       });
       if (!res.ok) throw new Error();
       setStatus('success');

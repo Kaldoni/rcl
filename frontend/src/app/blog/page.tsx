@@ -67,10 +67,15 @@ export default function BlogPage() {
               <div className="sidebar-widget">
                 <h3 className="sidebar-title"><span className="sidebar-title__bar"/>Recent Posts</h3>
                 <div className="recent-posts">
-                  {recentPosts.map(post=>(
+                  {articles.slice(0, 3).map(post=>(
                     <Link key={post.slug} href={`/blog/${post.slug}`} className="recent-post">
-                      <div className="recent-post__img"/>
-                      <div><span className="recent-post__title">{post.title}</span><span className="recent-post__date">{post.date}</span></div>
+                      <div className="recent-post__img">
+                        <img src={post.image} alt={post.title} />
+                      </div>
+                      <div>
+                        <span className="recent-post__title">{post.title}</span>
+                        <span className="recent-post__date">{post.date}</span>
+                      </div>
                     </Link>
                   ))}
                 </div>
