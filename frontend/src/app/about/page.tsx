@@ -119,7 +119,7 @@ export default function AboutPage() {
           <p className="about-cta__sub">Get in touch with our expert engineering team to discuss how we can deliver value to your operations.</p>
           <div className="cta-btns">
             <Link href="/contact" className="btn-outline-white">Contact Our Team</Link>
-            <Link href="/brochure.pdf" className="btn-red">Download Brochure</Link>
+            <Link href="/REWAJ-COMPANY-PROFILE-2026.pdf" className="btn-red">Download Brochure</Link>
           </div>
         </section>
       </main>

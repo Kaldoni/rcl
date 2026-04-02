@@ -74,16 +74,22 @@ Local development uses **SQLite**. The database file (`rewaj.db`) is automatical
 ```bash
 cd backend
 
-# Create virtual environment
+# Create and activate virtual environment
 python -m venv venv
-source venv/bin/activate      # Windows: venv\Scripts\activate
+venv\Scripts\activate      # For Windows (Command Prompt)
+# OR
+.\venv\Scripts\Activate.ps1 # For Windows (PowerShell)
+# OR
+source venv/bin/activate    # For Linux/macOS
 
 # Install dependencies
 pip install -r requirements.txt
 
 # Configure environment
-cp .env.example .env
-# Edit .env with your database credentials and secret key
+copy .env.example .env      # Windows
+# OR
+cp .env.example .env        # Linux/macOS
+# Edit .env with your credentials
 
 # Start the server
 uvicorn app.main:app --reload --port 8000
@@ -93,12 +99,13 @@ The API will be live at: **http://localhost:8000**
 Interactive docs at: **http://localhost:8000/docs**
 
 #### Seed the Database (Admin + Content)
-Run the seeding script to create the database tables, default admin, and initial blog/project content:
+After the backend is running, open a new terminal and run:
 ```bash
+cd backend
 python seed_content.py
 ```
 This creates the default admin: `admin@rewajcorporate.com` / `ChangeMe123!`
-> ⚠️ Note: For local development, the `DATABASE_URL` in `.env` should point to `sqlite+aiosqlite:///./rewaj.db`
+> ⚠️ **Note for Windows:** Ensure your `DATABASE_URL` in `.env` uses a relative path: `sqlite+aiosqlite:///./rewaj.db` for the best out-of-the-box experience.
 
 ---
 

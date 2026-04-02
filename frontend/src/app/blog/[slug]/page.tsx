@@ -53,12 +53,6 @@ export default function BlogArticlePage({ params }: { params: { slug: string } }
               ))}
             </div>
 
-            <div className="article__share">
-              <span>Share:</span>
-              <a href="#" className="share-btn">LinkedIn</a>
-              <a href="#" className="share-btn">Twitter</a>
-              <a href="#" className="share-btn">Copy Link</a>
-            </div>
           </article>
 
           {/* Sidebar */}

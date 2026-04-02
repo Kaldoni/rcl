@@ -62,7 +62,7 @@ export default function BlogPage() {
             <aside className="blog-sidebar">
               <div className="sidebar-widget">
                 <h3 className="sidebar-title">Search Articles</h3>
-                <div className="search-box"><span>🔍</span><input type="search" placeholder="Search insights..." /></div>
+                <div className="search-box"><input type="search" placeholder="Search insights..." /></div>
               </div>
               <div className="sidebar-widget">
                 <h3 className="sidebar-title"><span className="sidebar-title__bar"/>Recent Posts</h3>
