@@ -64,7 +64,7 @@ export default function ContactPage() {
                   ))}
                 </div>
                 <div className="map-wrap">
-                  <iframe title="Location" src="https://maps.google.com/maps?q=4.826726012519768,7.009149764881503&ll=4.826726012519768,7.009149764881503&z=18&output=embed" width="100%" height="260" style={{ border:0, display:'block' }} allowFullScreen loading="lazy" />
+                  <iframe title="Location" src="https://maps.app.goo.gl/8uBe5pFPfR5QqTKR7?g_st=aw" width="100%" height="260" style={{ border:0, display:'block' }} allowFullScreen loading="lazy" />
                 </div>
               </div>
               {/* Right */}
