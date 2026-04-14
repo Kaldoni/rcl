@@ -47,23 +47,28 @@ export default function AdminDashboard() {
   };
 
   const fetchData = useCallback(async () => {
-    if(!token()){router.push('/admin');return;}
+    const tkn = typeof window !== 'undefined' ? localStorage.getItem('rcl_token') : null;
+    if (!tkn) { router.push('/admin'); return; }
+    const _hdrs = {
+      'Authorization': `Bearer ${tkn}`,
+      'Content-Type': 'application/json'
+    };
     try {
       const [sRes, mRes, aRes, pRes] = await Promise.all([
-        fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/stats`,{headers:hdrs()}),
-        fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/messages`,{headers:hdrs()}),
-        fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/blog`,{headers:hdrs()}),
-        fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/projects`,{headers:hdrs()}),
+        fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/stats`, { headers: _hdrs }),
+        fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/messages`, { headers: _hdrs }),
+        fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/blog`, { headers: _hdrs }),
+        fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/projects`, { headers: _hdrs }),
       ]);
-      if(sRes.status===401){router.push('/admin');return;}
+      if (sRes.status === 401) { router.push('/admin'); return; }
       setStats(await sRes.json());
       setMessages(await mRes.json());
       setArticles(await aRes.json());
       setProjects(await pRes.json());
-    } catch(e){} finally{setLoading(false);}
-  },[router,hdrs]);
+    } catch(e) {} finally { setLoading(false); }
+  }, []);
 
-  useEffect(()=>{fetchData();},[fetchData]);
+  useEffect(()=>{fetchData();},[]);
 
   const markRead = async (id:number) => {
     await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/messages/${id}/read`,{method:'PATCH',headers:hdrs()});
@@ -201,12 +206,12 @@ export default function AdminDashboard() {
         const fullArticle = await res.json();
         setArticleForm({
           title: fullArticle.title,
-          category: fullArticle.category,
+          category: fullArticle.category || '',
           content: fullArticle.content || '',
           excerpt: fullArticle.excerpt || '',
           articleImage: fullArticle.featured_image || '',
           author: fullArticle.author || '',
-          slug: fullArticle.slug,
+          slug: fullArticle.slug || '',
           date: ''
         });
         setEditingArticle(article);
@@ -251,13 +256,13 @@ export default function AdminDashboard() {
     } catch (e) {
       console.error('Failed to fetch subscribers:', e);
     }
-  }, [hdrs]);
+  }, []);
 
   useEffect(() => {
     if (activeNav === 'Newsletter') {
       fetchSubscribers();
     }
-  }, [activeNav, fetchSubscribers]);
+  }, [activeNav]);
 
   const sendNewsletter = async () => {
     if (!newsletterSubject.trim() || !newsletterContent.trim()) {
@@ -314,29 +319,45 @@ export default function AdminDashboard() {
   });
 
   const uploadFile = async (file: File) => {
+    if (file.size > 4.5 * 1024 * 1024) {
+      setNotification(`File too large (${(file.size/1024/1024).toFixed(1)}MB). Max 4.5MB allowed.`);
+      setTimeout(() => setNotification(''), 4000);
+      return null;
+    }
     const formData = new FormData();
     formData.append('file', file);
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/upload`, {
+      const url = `${process.env.NEXT_PUBLIC_API_URL || ''}/api/upload`;
+      console.log("Uploading to:", url, "Size:", file.size);
+      
+      const res = await fetch(url, {
         method: 'POST',
         headers: {'Authorization': `Bearer ${token()}`},
         body: formData
       });
+      
       if (res.ok) {
         const data = await res.json();
         return data.url;
       } else {
-        throw new Error('Upload failed');
+        const errJson = await res.json().catch(() => ({}));
+        const errMsg = errJson.detail || `Server error ${res.status}`;
+        console.error("Upload failed:", res.status, errJson);
+        setNotification(`Upload failed: ${errMsg}`);
+        setTimeout(() => setNotification(''), 5000);
+        return null;
       }
-    } catch (e) {
-      setNotification('File upload failed');
-      setTimeout(() => setNotification(''), 3000);
+    } catch (e: any) {
+      console.error("Upload network exception:", e);
+      setNotification(`Network error: ${e.message}`);
+      setTimeout(() => setNotification(''), 4000);
       return null;
     }
   };
 
   const handleArticleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+
     if (file) {
       const url = await uploadFile(file);
       if (url) {

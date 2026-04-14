@@ -91,23 +91,62 @@ async def upload_file(
     if not file.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="Only image files are allowed")
 
-    cloudinary_url = getattr(settings, "CLOUDINARY_URL", "")
+    cloudinary_url = getattr(settings, "CLOUDINARY_URL", "") or os.environ.get("CLOUDINARY_URL", "")
     
+    # Auto-fix common Render copy-paste error: "CLOUDINARY_URL=cloudinary://..."
+    if cloudinary_url.startswith("CLOUDINARY_URL="):
+        cloudinary_url = cloudinary_url.replace("CLOUDINARY_URL=", "", 1)
+
     if cloudinary_url:
         # ── Cloudinary upload (persistent) ──
+        # Parse cloudinary://api_key:api_secret@cloud_name
         try:
             import cloudinary
             import cloudinary.uploader
-            cloudinary.config(cloudinary_url=cloudinary_url)
-            content = await file.read()
-            result = cloudinary.uploader.upload(
-                io.BytesIO(content),
-                folder="rcl-uploads",
-                resource_type="image",
+            import tempfile
+            import os as base_os
+            
+            # Parse credentials from URL safely
+            import re
+            match = re.search(r"cloudinary://([^:]+):([^@]+)@([^/?#\s]+)", cloudinary_url)
+            if not match:
+                print(f"FAILED TO PARSE CLOUDINARY_URL: {cloudinary_url}")
+                raise HTTPException(status_code=500, detail="Malformed CLOUDINARY_URL")
+            
+            api_key = match.group(1)
+            api_secret = match.group(2)
+            cloud_name = match.group(3).strip("/")  # Ensure no trailing slash
+            
+            print(f"DEBUG: Configured Cloudinary for {cloud_name}")
+            cloudinary.config(
+                cloud_name=cloud_name,
+                api_key=api_key,
+                api_secret=api_secret,
+                secure=True,
             )
-            return {"url": result["secure_url"]}
+            
+            # Use a robust temp file to avoid BytesIO interface issues with Cloudinary SDK
+            content = await file.read()
+            fd, temp_path = tempfile.mkstemp(suffix=base_os.path.splitext(file.filename)[1])
+            try:
+                with base_os.fdopen(fd, 'wb') as temp_file:
+                    temp_file.write(content)
+                    
+                result = cloudinary.uploader.upload(
+                    temp_path,
+                    folder="rcl-uploads",
+                    resource_type="image",
+                )
+                return {"url": result["secure_url"]}
+            finally:
+                if base_os.path.exists(temp_path):
+                    base_os.remove(temp_path)
+            
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Cloudinary upload failed: {str(e)}")
+            import traceback
+            print("CLOUDINARY ERROR TRACEBACK:")
+            traceback.print_exc()
+            raise HTTPException(status_code=500, detail=f"Cloudinary Error: {str(e)}")
     else:
         # ── Local disk fallback (dev only) ──
         upload_dir = "static/uploads"
