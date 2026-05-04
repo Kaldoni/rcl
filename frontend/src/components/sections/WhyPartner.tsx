@@ -3,9 +3,9 @@ import Link from 'next/link';
 import { Award, AlertCircle, Lightbulb, Trophy } from 'lucide-react';
 
 const reasons = [
-  { Icon: Award, title:'Local Content Excellence', desc:'Proudly Nigerian, maximizing local talent and resources for every project.' },
-  { Icon: AlertCircle, title:'Uncompromising Safety', desc:'Our "Safety First" culture ensures zero incidents and complete compliance.' },
-  { Icon: Lightbulb, title:'Innovative Solutions', desc:'We leverage the latest engineering methods and technology to deliver smarter, more efficient outcomes.' },
+  { Icon: Award, title: 'Local Content Excellence', desc: 'Proudly Nigerian, maximizing local talent and resources for every project.' },
+  { Icon: AlertCircle, title: 'Uncompromising Safety', desc: 'Our "Safety First" culture ensures zero incidents and complete compliance.' },
+  { Icon: Lightbulb, title: 'Innovative Solutions', desc: 'We leverage the latest engineering methods and technology to deliver smarter, more efficient outcomes.' },
 ];
 
 export default function WhyPartner() {
@@ -14,10 +14,10 @@ export default function WhyPartner() {
       <div className="container why-partner__inner">
         <div>
           <div className="why-partner__img-wrap">
-            <img src="/team-offshore.jpg" alt="Rewaj team on-site" className="why-partner__img" />
+            <img src="/images/team-offshore.jpg" alt="Rewaj team on-site" className="why-partner__img" />
             <div className="why-partner__badge">
               <Award className="badge__icon" size={30} />
-              <div><strong>ISO Certified</strong><span>Quality Managemnet System</span></div>
+              <div><strong>ISO Certified</strong><span>Quality Management System</span></div>
             </div>
           </div>
         </div>

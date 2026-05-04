@@ -1,6 +1,7 @@
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
 import Link from 'next/link';
+import { User, Calendar, Tag, Clock, ChevronRight } from 'lucide-react';
 
 interface Project {
   id: number;
@@ -9,6 +10,7 @@ interface Project {
   category?: string;
   tag?: string;
   description?: string;
+  full_description?: string;
   client_name?: string;
   completion_year?: string;
   featured_image?: string;
@@ -77,12 +79,12 @@ export default async function ProjectPage({ params }: { params: { slug: string }
       <main style={{ paddingTop: '72px' }}>
 
         {/* Hero */}
-        <section 
-          className="proj-detail-hero" 
-          style={{ 
-            backgroundImage: `url(${project.featured_image?.startsWith('/') && !project.featured_image.startsWith('/images') 
-                              ? `${(process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, '')}${project.featured_image}` 
-                              : (project.featured_image || '/images/project-default.jpg')})` 
+        <section
+          className="proj-detail-hero"
+          style={{
+            backgroundImage: `url(${project.featured_image?.startsWith('/') && !project.featured_image.startsWith('/images')
+              ? `${(process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, '')}${project.featured_image}`
+              : (project.featured_image || '/images/project-default.jpg')})`
           }}
         >
           <div className="proj-detail-hero__overlay" />
@@ -95,9 +97,9 @@ export default async function ProjectPage({ params }: { params: { slug: string }
             <span className="proj-tag" style={{ background: tagColors[project.tag ?? ''] || '#FB0202' }}>{project.tag || 'PROJECT'}</span>
             <h1 className="proj-detail-title">{project.title}</h1>
             <div className="proj-detail-meta">
-              <span>👤 {project.client_name || 'Confidential Client'}</span>
-              <span>📅 Completed: {project.completion_year || 'TBD'}</span>
-              <span>🏷️ {project.category || 'Engineering'}</span>
+              <span><User size={18} /> {project.client_name || 'Confidential Client'}</span>
+              <span><Calendar size={18} /> Completed: {project.completion_year || 'TBD'}</span>
+              <span><Tag size={18} /> {project.category || 'Engineering'}</span>
             </div>
           </div>
         </section>
@@ -105,33 +107,53 @@ export default async function ProjectPage({ params }: { params: { slug: string }
         <div className="container proj-detail-layout">
           <div className="proj-detail-main">
             <div className="proj-detail-section">
-              <h2>Project Overview</h2>
-              <p>{project.description || 'This project demonstrates our expertise in delivering high-quality engineering solutions for the oil and gas industry.'}</p>
+              <h2>Project Description</h2>
+              <p style={{ whiteSpace: 'pre-line' }}>{project.full_description || project.description || 'This project demonstrates our expertise in delivering high-quality engineering solutions for the oil and gas industry.'}</p>
             </div>
 
-            <div className="proj-detail-section">
-              <h2>Client</h2>
-              <p>{project.client_name || 'Confidential Client'}</p>
-            </div>
-
-            <div className="proj-detail-section">
-              <h2>Completion Year</h2>
-              <p>{project.completion_year || 'N/A'}</p>
-            </div>
+            {project.description && project.full_description && (
+              <div className="proj-detail-section">
+                <h2>Scope of Work</h2>
+                <p style={{ whiteSpace: 'pre-line' }}>{project.description}</p>
+              </div>
+            )}
           </div>
 
           <aside className="proj-detail-sidebar">
             <div className="proj-detail-card">
-              <h3>Project Details</h3>
+              <h3>Project Information</h3>
               <div className="proj-detail-info">
-                <span>Client:</span>
-                <span>{project.client_name || 'Confidential'}</span>
-                <span>Year:</span>
-                <span>{project.completion_year || 'N/A'}</span>
-                <span>Category:</span>
-                <span>{project.category || 'Engineering'}</span>
-                <span>Status:</span>
-                <span>{project.status === 'executed' ? 'Executed' : 'On-going'}</span>
+                <div className="proj-detail-info-item">
+                  <div className="icon"><User size={16} /></div>
+                  <div className="text">
+                    <label>Client</label>
+                    <span>{project.client_name || 'Confidential'}</span>
+                  </div>
+                </div>
+
+                <div className="proj-detail-info-item">
+                  <div className="icon"><Calendar size={16} /></div>
+                  <div className="text">
+                    <label>Year</label>
+                    <span>{project.completion_year || 'N/A'}</span>
+                  </div>
+                </div>
+
+                <div className="proj-detail-info-item">
+                  <div className="icon"><Tag size={16} /></div>
+                  <div className="text">
+                    <label>Category</label>
+                    <span>{project.category || 'Engineering'}</span>
+                  </div>
+                </div>
+
+                <div className="proj-detail-info-item">
+                  <div className="icon"><Clock size={16} /></div>
+                  <div className="text">
+                    <label>Status</label>
+                    <span>{project.status === 'executed' ? 'Executed' : 'On-going'}</span>
+                  </div>
+                </div>
               </div>
             </div>
           </aside>
@@ -145,14 +167,14 @@ export default async function ProjectPage({ params }: { params: { slug: string }
                 {relatedProjects.map(project => (
                   <Link key={project.id} href={`/projects/${project.slug}`} className="project-card" style={{ textDecoration: 'none' }}>
                     <div style={{ border: '1px solid #E2E8F0', borderRadius: '12px', overflow: 'hidden', background: '#fff' }}>
-                    <div 
-                      style={{ 
-                        height: '180px', 
-                        background: `url(${project.featured_image?.startsWith('/') && !project.featured_image.startsWith('/images') 
-                                          ? `${(process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, '')}${project.featured_image}` 
-                                          : (project.featured_image || '/images/project-default.jpg')}) center/cover` 
-                      }} 
-                    />
+                      <div
+                        style={{
+                          height: '180px',
+                          background: `url(${project.featured_image?.startsWith('/') && !project.featured_image.startsWith('/images')
+                            ? `${(process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, '')}${project.featured_image}`
+                            : (project.featured_image || '/images/project-default.jpg')}) center/cover`
+                        }}
+                      />
                       <div style={{ padding: '18px' }}>
                         <span style={{ display: 'inline-block', marginBottom: '8px', padding: '4px 10px', borderRadius: '999px', background: tagColors[project.tag ?? ''] || '#FB0202', color: '#fff', fontSize: '12px' }}>
                           {project.tag || 'PROJECT'}
@@ -172,10 +194,12 @@ export default async function ProjectPage({ params }: { params: { slug: string }
 
         <section className="cta-section">
           <div className="container">
-            <div className="cta-content">
-              <h2>Ready to Start Your Project?</h2>
-              <p>Let's discuss how we can help bring your vision to life.</p>
-              <Link href="/contact" className="btn-primary">Get In Touch</Link>
+            <div className="cta-card">
+              <div className="cta-card__content">
+                <h2 className="cta-card__title">Ready to Start Your Project?</h2>
+                <p className="cta-card__text">Let's discuss how we can help bring your vision to life and deliver the operational excellence your facility deserves.</p>
+                <Link href="/contact" className="btn-primary">Get In Touch</Link>
+              </div>
             </div>
           </div>
         </section>

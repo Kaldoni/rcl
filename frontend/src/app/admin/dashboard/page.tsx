@@ -1,11 +1,13 @@
 'use client';
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 
 interface Stats { total_messages: number; unread_messages: number; total_articles: number; total_projects: number; }
 interface Message { id: number; name: string; email: string; company?: string; phone?: string; subject?: string; message: string; is_read: boolean; created_at: string; }
 interface Article { id: number; title: string; slug: string; category: string; content?: string; excerpt?: string; author?: string; featured_image?: string; is_published: boolean; created_at: string; }
-interface Project { id: number; title: string; slug: string; category: string; description?: string; client_name?: string; completion_year: string; featured_image?: string; status?: string; is_active: boolean; }
+interface Project { id: number; title: string; slug: string; category: string; description?: string; full_description?: string; client_name?: string; completion_year: string; featured_image?: string; status?: string; is_active: boolean; }
+interface Job { id: number; title: string; department: string; location: string; job_type: string; summary?: string; responsibilities: string; requirements: string; qualifications: string; application_deadline: string; expiry_date?: string; internal_notes?: string; status: string; created_at: string; updated_at?: string; }
+interface JobApplication { id: number; job_id: number; full_name: string; email: string; phone: string; dob: string; gender: string; nationality: string; highest_qualification: string; institution: string; course_of_study: string; nysc_status: string; cv_path: string; certifications_path?: string; created_at: string; }
 
 const TAG_COLORS: Record<string,string> = { PARTNERSHIP:'#10B981', URGENT:'#EF4444', 'QUOTE REQ':'#F97316', CAREERS:'#6366F1' };
 
@@ -18,18 +20,33 @@ export default function AdminDashboard() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedMsg, setSelectedMsg] = useState<Message|null>(null);
-  const [projectForm, setProjectForm] = useState({title:'',client:'',description:'',projectImage:'',projectYear:'',category:'',tag:''});
-  const [articleForm, setArticleForm] = useState({title:'',category:'',content:'',excerpt:'',articleImage:'',author:'',slug:'',date:''});
+  const [projectForm, setProjectForm] = useState({title:'',client:'',description:'',full_description:'',projectImage:'',projectYear:'',category:'',tag:''});
+  const [articleForm, setArticleForm] = useState({title:'',category:'',content:'',excerpt:'',articleImage:'',author:'',slug:'',date:'', is_published: false});
   const [showProjectForm, setShowProjectForm] = useState(false);
   const [showArticleForm, setShowArticleForm] = useState(false);
   const [notification, setNotification] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [newsletterSubject, setNewsletterSubject] = useState('');
   const [newsletterContent, setNewsletterContent] = useState('');
-  const [subscribers, setSubscribers] = useState([]);
+  const [subscribers, setSubscribers] = useState<any[]>([]);
+  const [newSubEmail, setNewSubEmail] = useState('');
   const [sendingNewsletter, setSendingNewsletter] = useState(false);
   const [editingArticle, setEditingArticle] = useState<Article|null>(null);
   const [editingProject, setEditingProject] = useState<Project|null>(null);
+  
+  const [jobs, setJobs] = useState<Job[]>([]);
+  const [applications, setApplications] = useState<JobApplication[]>([]);
+  const [jobForm, setJobForm] = useState({title:'',department:'',location:'',job_type:'',summary:'',responsibilities:'',requirements:'',qualifications:'',application_deadline:'',expiry_date:'',internal_notes:'',status:'Draft'});
+  const [showJobForm, setShowJobForm] = useState(false);
+  const [editingJob, setEditingJob] = useState<Job|null>(null);
+  const [selectedApplication, setSelectedApplication] = useState<JobApplication|null>(null);
+  const [expandedAppId, setExpandedAppId] = useState<number|null>(null);
+  
+  const [profileForm, setProfileForm] = useState({full_name:'',email:''});
+  const [passwordForm, setPasswordForm] = useState({old_password:'',new_password:'',confirm_password:''});
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [changingPass, setChangingPass] = useState(false);
+  const [lastSeenAppId, setLastSeenAppId] = useState<number>(0);
 
   const token = () => typeof window!=='undefined' ? localStorage.getItem('rcl_token') : null;
   const userEmail = () => typeof window!=='undefined' ? localStorage.getItem('rcl_user') : '';
@@ -42,9 +59,44 @@ export default function AdminDashboard() {
     if (!url) return '';
     if (url.startsWith('http') || url.startsWith('blob:') || url.startsWith('data:')) return url;
     if (url.startsWith('/images/')) return url; // Seeder images
+    
     const apiBase = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, '');
-    return `${apiBase}${url}`;
+    // Ensure url starts with a slash
+    const normalizedUrl = url.startsWith('/') ? url : `/${url}`;
+    return `${apiBase}${normalizedUrl}`;
   };
+
+  const stripTags = (html: string) => {
+    if (!html) return '';
+    // Replace <p> tags with newlines, remove others
+    return html.replace(/<p>/gi, '').replace(/<\/p>/gi, '\n').replace(/<br\s*\/?>/gi, '\n').trim();
+  };
+
+  const wrapTags = (text: string) => {
+    if (!text) return '';
+    return text.split('\n')
+      .map(line => line.trim())
+      .filter(line => line.length > 0)
+      .map(line => line.startsWith('<') ? line : `<p>${line}</p>`)
+      .join('');
+  };
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('rcl_last_seen_app_id');
+      if (stored) setLastSeenAppId(parseInt(stored));
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeNav === 'Jobs' && applications.length > 0) {
+      const currentMax = Math.max(...applications.map(a => a.id));
+      if (currentMax > lastSeenAppId) {
+        setLastSeenAppId(currentMax);
+        localStorage.setItem('rcl_last_seen_app_id', currentMax.toString());
+      }
+    }
+  }, [activeNav, applications, lastSeenAppId]);
 
   const fetchData = useCallback(async () => {
     const tkn = typeof window !== 'undefined' ? localStorage.getItem('rcl_token') : null;
@@ -54,17 +106,21 @@ export default function AdminDashboard() {
       'Content-Type': 'application/json'
     };
     try {
-      const [sRes, mRes, aRes, pRes] = await Promise.all([
+      const [sRes, mRes, aRes, pRes, jRes, appRes] = await Promise.all([
         fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/stats`, { headers: _hdrs }),
         fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/messages`, { headers: _hdrs }),
         fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/blog`, { headers: _hdrs }),
         fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/projects`, { headers: _hdrs }),
+        fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/careers/admin/jobs`, { headers: _hdrs }),
+        fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/careers/admin/applications`, { headers: _hdrs }),
       ]);
       if (sRes.status === 401) { router.push('/admin'); return; }
       setStats(await sRes.json());
       setMessages(await mRes.json());
       setArticles(await aRes.json());
       setProjects(await pRes.json());
+      setJobs(await jRes.json());
+      setApplications(await appRes.json());
     } catch(e) {} finally { setLoading(false); }
   }, []);
 
@@ -93,6 +149,25 @@ export default function AdminDashboard() {
     setProjects(prev=>prev.filter(p=>p.id!==id));
   };
 
+  const updateArticleStatus = async (id: number, published: boolean) => {
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/blog/${id}`, {
+        method: 'PUT',
+        headers: hdrs(),
+        body: JSON.stringify({ is_published: published })
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setArticles(prev => prev.map(a => a.id === id ? { ...a, is_published: updated.is_published } : a));
+        setNotification(`Article ${published ? 'published' : 'moved to draft'}!`);
+        setTimeout(() => setNotification(''), 3000);
+      }
+    } catch (e) {
+      setNotification('Error updating article status');
+      setTimeout(() => setNotification(''), 3000);
+    }
+  };
+
   const updateProjectStatus = async (id: number, newStatus: string) => {
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/projects/${id}/status?status=${newStatus}`, {
@@ -114,6 +189,153 @@ export default function AdminDashboard() {
     }
   };
 
+  const deleteJob = async (id:number) => {
+    if(!confirm('Delete this job?')) return;
+    await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/careers/${id}`,{method:'DELETE',headers:hdrs()});
+    setJobs(prev=>prev.filter(j=>j.id!==id));
+  };
+  
+  const updateJobStatus = async (id: number, newStatus: string) => {
+    try {
+      const targetJob = jobs.find(j => j.id === id);
+      if (!targetJob) return;
+      const payload = { ...targetJob, status: newStatus };
+      if (!payload.expiry_date) delete (payload as any).expiry_date;
+      if (!payload.internal_notes) delete (payload as any).internal_notes;
+      if (!(payload as any).updated_at) delete (payload as any).updated_at;
+
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/careers/${id}`, {
+        method: 'PUT',
+        headers: hdrs(),
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setJobs(prev => prev.map(j => j.id === id ? { ...j, status: updated.status } : j));
+        setNotification('Job status updated!');
+        setTimeout(() => setNotification(''), 3000);
+      }
+    } catch(e) {}
+  };
+
+  const deleteApplication = async (id:number) => {
+    if(!confirm('Delete this application?')) return;
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/careers/admin/applications/${id}`,{method:'DELETE',headers:hdrs()});
+      if(res.ok) {
+        setApplications(prev=>prev.filter(a=>a.id!==id));
+        if(expandedAppId===id) setExpandedAppId(null);
+        setNotification('Application deleted');
+        setTimeout(()=>setNotification(''),3000);
+      }
+    } catch(e){}
+  };
+
+  const clearAllApplications = async () => {
+    if(!confirm('Are you sure you want to delete ALL applications? This cannot be undone.')) return;
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/careers/admin/applications/clear-all`,{method:'DELETE',headers:hdrs()});
+      if(res.ok) {
+        setApplications([]);
+        setExpandedAppId(null);
+        setNotification('All applications cleared');
+        setTimeout(()=>setNotification(''),3000);
+      }
+    } catch(e){}
+  };
+
+  const fetchProfile = async () => {
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/profile`, { headers: hdrs() });
+      if (res.ok) {
+        const data = await res.json();
+        setProfileForm({ full_name: data.full_name, email: data.email });
+      }
+    } catch(e){}
+  };
+
+  const updateProfile = async () => {
+    setSavingProfile(true);
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/profile`, {
+        method: 'PATCH',
+        headers: hdrs(),
+        body: JSON.stringify({ full_name: profileForm.full_name, email: profileForm.email })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setNotification('Profile updated successfully!');
+        if (typeof window !== 'undefined') localStorage.setItem('rcl_user', data.email);
+        setTimeout(()=>setNotification(''),3000);
+      }
+    } catch(e){} finally { setSavingProfile(false); }
+  };
+
+  const changePassword = async () => {
+    if (passwordForm.new_password !== passwordForm.confirm_password) {
+      setNotification('Passwords do not match');
+      setTimeout(()=>setNotification(''),3000);
+      return;
+    }
+    setChangingPass(true);
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/profile/password`, {
+        method: 'PATCH',
+        headers: hdrs(),
+        body: JSON.stringify({ old_password: passwordForm.old_password, new_password: passwordForm.new_password })
+      });
+      if (res.ok) {
+        setNotification('Password changed successfully!');
+        setPasswordForm({old_password:'',new_password:'',confirm_password:''});
+        setTimeout(()=>setNotification(''),3000);
+      } else {
+        const err = await res.json();
+        setNotification(err.detail || 'Change password failed');
+        setTimeout(()=>setNotification(''),3000);
+      }
+    } catch(e){} finally { setChangingPass(false); }
+  };
+
+  const createJob = async () => {
+    if(!jobForm.title.trim() || !jobForm.application_deadline) return;
+    try {
+      const method = editingJob ? 'PUT' : 'POST';
+      const url = editingJob ? `${process.env.NEXT_PUBLIC_API_URL}/api/careers/${editingJob.id}` : `${process.env.NEXT_PUBLIC_API_URL}/api/careers/`;
+      
+      const payload = { ...jobForm };
+      if (!payload.expiry_date) delete (payload as any).expiry_date;
+      if (!payload.internal_notes) delete (payload as any).internal_notes;
+
+      const res = await fetch(url, {
+        method, headers: hdrs(), body: JSON.stringify(payload)
+      });
+      if(res.ok) {
+        const updatedJob = await res.json();
+        if(editingJob) setJobs(prev=>prev.map(j=>j.id===editingJob.id?updatedJob:j));
+        else setJobs(prev=>[updatedJob,...prev]);
+        setNotification(`Job ${editingJob?'updated':'created'} successfully!`);
+        setShowJobForm(false);
+        setEditingJob(null);
+        setJobForm({title:'',department:'',location:'',job_type:'',summary:'',responsibilities:'',requirements:'',qualifications:'',application_deadline:'',expiry_date:'',internal_notes:'',status:'Draft'});
+        setTimeout(()=>setNotification(''),3000);
+      }
+    } catch(e){}
+  };
+
+  const createArticleStatus = async (id: number, published: boolean) => {
+    // This is handled via the edit function or updateArticleStatus
+  };
+
+  const editJob = (job: Job) => {
+    setJobForm({
+      title: job.title, department: job.department, location: job.location, job_type: job.job_type,
+      summary: job.summary || '', responsibilities: job.responsibilities, requirements: job.requirements, qualifications: job.qualifications,
+      application_deadline: job.application_deadline, expiry_date: job.expiry_date || '', internal_notes: job.internal_notes || '', status: job.status
+    });
+    setEditingJob(job);
+    setShowJobForm(true);
+  };
+
   const createArticle = async () => {
     if(!articleForm.title.trim()) return;
     try {
@@ -128,11 +350,11 @@ export default function AdminDashboard() {
           title: articleForm.title,
           slug,
           excerpt: articleForm.excerpt,
-          content: articleForm.content,
+          content: wrapTags(articleForm.content),
           author: articleForm.author,
           category: articleForm.category || 'General',
           featured_image: articleForm.articleImage,
-          is_published: false
+          is_published: articleForm.is_published
         })
       });
       if(res.ok){
@@ -144,7 +366,7 @@ export default function AdminDashboard() {
           setArticles(prev=>[updatedArticle,...prev]);
           setNotification('Article created successfully!');
         }
-        setArticleForm({title:'',category:'',content:'',excerpt:'',articleImage:'',author:'',slug:'',date:''});
+        setArticleForm({title:'',category:'',content:'',excerpt:'',articleImage:'',author:'',slug:'',date:'', is_published: false});
         setShowArticleForm(false);
         setEditingArticle(null);
         setTimeout(()=>setNotification(''),3000);
@@ -171,6 +393,7 @@ export default function AdminDashboard() {
           category: projectForm.category,
           tag: projectForm.tag,
           description: projectForm.description,
+          full_description: projectForm.full_description,
           client_name: projectForm.client,
           completion_year: projectForm.projectYear || new Date().getFullYear().toString(),
           featured_image: projectForm.projectImage,
@@ -186,7 +409,7 @@ export default function AdminDashboard() {
           setProjects(prev=>[updatedProject,...prev]);
           setNotification('Project created successfully!');
         }
-        setProjectForm({title:'',client:'',description:'',projectImage:'',projectYear:'',category:'',tag:''});
+        setProjectForm({title:'',client:'',description:'',full_description:'',projectImage:'',projectYear:'',category:'',tag:''});
         setShowProjectForm(false);
         setEditingProject(null);
         setTimeout(()=>setNotification(''),3000);
@@ -207,12 +430,13 @@ export default function AdminDashboard() {
         setArticleForm({
           title: fullArticle.title,
           category: fullArticle.category || '',
-          content: fullArticle.content || '',
+          content: stripTags(fullArticle.content || ''),
           excerpt: fullArticle.excerpt || '',
           articleImage: fullArticle.featured_image || '',
           author: fullArticle.author || '',
           slug: fullArticle.slug || '',
-          date: ''
+          date: '',
+          is_published: fullArticle.is_published || false
         });
         setEditingArticle(article);
         setShowArticleForm(true);
@@ -232,6 +456,7 @@ export default function AdminDashboard() {
           title: fullProject.title,
           client: fullProject.client_name || '',
           description: fullProject.description || '',
+          full_description: fullProject.full_description || '',
           projectImage: fullProject.featured_image || '',
           projectYear: fullProject.completion_year || '',
           category: fullProject.category || '',
@@ -262,7 +487,47 @@ export default function AdminDashboard() {
     if (activeNav === 'Newsletter') {
       fetchSubscribers();
     }
+    if (activeNav === 'Settings') {
+      fetchProfile();
+    }
   }, [activeNav]);
+
+  const addSubscriber = async () => {
+    if(!newSubEmail || !newSubEmail.includes('@')) return;
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/subscribers`, {
+        method:'POST',
+        headers: hdrs(),
+        body: JSON.stringify({ email: newSubEmail })
+      });
+      if(res.ok) {
+        setNotification('Subscriber added successfully!');
+        setNewSubEmail('');
+        fetchSubscribers();
+      } else {
+        const error = await res.json();
+        setNotification(`Error: ${error.detail || 'Could not add subscriber'}`);
+      }
+    } catch(err) {
+      setNotification('Failed to add subscriber');
+    }
+  };
+
+  const removeSubscriber = async (id: number) => {
+    if(!confirm('Are you sure you want to remove this subscriber?')) return;
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/subscribers/${id}`, {
+        method:'DELETE',
+        headers: hdrs()
+      });
+      if(res.ok) {
+        setNotification('Subscriber removed');
+        fetchSubscribers();
+      }
+    } catch(err) {
+      setNotification('Failed to remove subscriber');
+    }
+  };
 
   const sendNewsletter = async () => {
     if (!newsletterSubject.trim() || !newsletterContent.trim()) {
@@ -283,11 +548,17 @@ export default function AdminDashboard() {
       });
       
       if (res.ok) {
-        setNotification('Newsletter sent successfully!');
-        setNewsletterSubject('');
-        setNewsletterContent('');
+        const data = await res.json();
+        if (data.errors && data.errors.length > 0) {
+          setNotification(`Partial success: ${data.success_count} sent. First error: ${data.errors[0]}`);
+        } else {
+          setNotification('Newsletter sent successfully!');
+          setNewsletterSubject('');
+          setNewsletterContent('');
+        }
       } else {
-        setNotification('Failed to send newsletter');
+        const errData = await res.json().catch(() => ({}));
+        setNotification(`Error: ${errData.detail || 'Submission failed'}`);
       }
     } catch (e) {
       setNotification('Error sending newsletter');
@@ -378,7 +649,7 @@ export default function AdminDashboard() {
 
   const navItems = [
     {icon:'📊',label:'Dashboard'},{icon:'🔍',label:'Search'},{icon:'📝',label:'Articles'},{icon:'🏗️',label:'Projects'},
-    {icon:'✉️',label:'Inbox',badge:stats?.unread_messages},{icon:'📧',label:'Newsletter'},{icon:'⚙️',label:'Settings'},
+    {icon:'💼',label:'Jobs',badge:applications.filter(a => a.id > lastSeenAppId).length},{icon:'✉️',label:'Inbox',badge:stats?.unread_messages},{icon:'📧',label:'Newsletter'},{icon:'⚙️',label:'Settings'},
   ];
 
   if(loading) return (
@@ -603,9 +874,20 @@ export default function AdminDashboard() {
                     )}
                   </div>
                   <div className="fgroup" style={{marginBottom:'12px'}}><label>Content</label><textarea value={articleForm.content} onChange={e=>setArticleForm(p=>({...p,content:e.target.value}))} placeholder="Article content" rows={6} /></div>
+                  <div className="fgroup" style={{marginBottom:'12px'}}>
+                    <label>Status</label>
+                    <select 
+                      value={articleForm.is_published ? 'Published' : 'Draft'} 
+                      onChange={e => setArticleForm(p => ({ ...p, is_published: e.target.value === 'Published' }))}
+                      style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #E2E8F0' }}
+                    >
+                      <option value="Draft">Draft</option>
+                      <option value="Published">Published</option>
+                    </select>
+                  </div>
                   <div style={{display:'flex',gap:'10px'}}>
                     <button className="btnprimary" onClick={createArticle}>{editingArticle ? 'Update Article' : 'Create Article'}</button>
-                    <button onClick={()=>{setShowArticleForm(false);setEditingArticle(null);setArticleForm({title:'',category:'',content:'',excerpt:'',articleImage:'',author:'',slug:'',date:''});}} style={{background:'none',border:'1px solid #CBD5E1',color:'#64748B'}}>Cancel</button>
+                    <button onClick={()=>{setShowArticleForm(false);setEditingArticle(null);setArticleForm({title:'',category:'',content:'',excerpt:'',articleImage:'',author:'',slug:'',date:'', is_published: false});}} style={{background:'none',border:'1px solid #CBD5E1',color:'#64748B'}}>Cancel</button>
                   </div>
                 </div>
               )}
@@ -617,7 +899,17 @@ export default function AdminDashboard() {
                       <tr key={a.id}>
                         <td><p className="atitle">{a.title}</p></td>
                         <td><span className="cpill">{a.category}</span></td>
-                        <td><span className={`spill spill--${a.is_published?'pub':'draft'}`}>● {a.is_published?'Published':'Draft'}</span></td>
+                        <td>
+                          <select 
+                            value={a.is_published ? 'Published' : 'Draft'} 
+                            onChange={(e) => updateArticleStatus(a.id, e.target.value === 'Published')}
+                            className={`spill spill--${a.is_published?'pub':'draft'}`}
+                            style={{ border: 'none', cursor: 'pointer', outline: 'none', padding: '4px 8px' }}
+                          >
+                            <option value="Draft">Draft</option>
+                            <option value="Published">Published</option>
+                          </select>
+                        </td>
                         <td style={{fontSize:'13px',color:'#94A3B8'}}>{new Date(a.created_at).toLocaleDateString()}</td>
                         <td><button className="dicon" onClick={()=>editArticle(a)}>✏️</button><button className="dicon" onClick={()=>deleteArticle(a.id)}>🗑</button></td>
                       </tr>
@@ -647,10 +939,11 @@ export default function AdminDashboard() {
                       <div style={{marginTop:'8px', height:'100px', width:'150px', border:'1px solid #E2E8F0', borderRadius:'4px', overflow:'hidden', background:`url(${resolveImageUrl(projectForm.projectImage)}) center/cover` }} />
                     )}
                   </div>
-                  <div className="fgroup" style={{marginBottom:'12px'}}><label>Description</label><textarea value={projectForm.description} onChange={e=>setProjectForm(p=>({...p,description:e.target.value}))} placeholder="Project description" rows={4} /></div>
+                  <div className="fgroup" style={{marginBottom:'12px'}}><label>Summary Description (Grid)</label><textarea value={projectForm.description} onChange={e=>setProjectForm(p=>({...p,description:e.target.value}))} placeholder="Short summary for the project card" rows={3} /></div>
+                  <div className="fgroup" style={{marginBottom:'12px'}}><label>Full Detailed Description</label><textarea value={projectForm.full_description} onChange={e=>setProjectForm(p=>({...p,full_description:e.target.value}))} placeholder="Full project details, scope, and technical info" rows={8} /></div>
                   <div style={{display:'flex',gap:'10px'}}>
                     <button className="btnprimary" onClick={createProject}>{editingProject ? 'Update Project' : 'Create Project'}</button>
-                    <button onClick={()=>{setShowProjectForm(false);setEditingProject(null);setProjectForm({title:'',client:'',description:'',projectImage:'',projectYear:'',category:'',tag:''});}} style={{background:'none',border:'1px solid #CBD5E1',color:'#64748B'}}>Cancel</button>
+                    <button onClick={()=>{setShowProjectForm(false);setEditingProject(null);setProjectForm({title:'',client:'',description:'',full_description:'',projectImage:'',projectYear:'',category:'',tag:''});}} style={{background:'none',border:'1px solid #CBD5E1',color:'#64748B'}}>Cancel</button>
                   </div>
                 </div>
               )}
@@ -674,12 +967,146 @@ export default function AdminDashboard() {
             </div>
           )}
 
+          {activeNav==='Jobs'&&(
+            <div>
+              <div className="cheader"><div><h1 className="ctitle">Careers & Jobs</h1><p className="csub">Manage job postings and view applications.</p></div><button className="btnprimary" onClick={()=>setShowJobForm(!showJobForm)}>+ New Job</button></div>
+              {showJobForm && (
+                <div className="panel" style={{marginBottom:'20px',padding:'20px'}}>
+                  <h3 style={{marginBottom:'16px'}}>{editingJob ? 'Edit Job' : 'Create New Job'}</h3>
+                  <div className="fr2">
+                    <div className="fgroup" style={{marginBottom:'12px'}}><label>Title *</label><input value={jobForm.title} onChange={e=>setJobForm(p=>({...p,title:e.target.value}))} placeholder="Job Title" /></div>
+                    <div className="fgroup" style={{marginBottom:'12px'}}><label>Location *</label><input value={jobForm.location} onChange={e=>setJobForm(p=>({...p,location:e.target.value}))} placeholder="Port Harcourt, Nigeria" /></div>
+                  </div>
+                  <div className="fr2">
+                    <div className="fgroup" style={{marginBottom:'12px'}}><label>Department *</label><input value={jobForm.department} onChange={e=>setJobForm(p=>({...p,department:e.target.value}))} placeholder="Engineering" /></div>
+                    <div className="fgroup" style={{marginBottom:'12px'}}><label>Job Type *</label><input value={jobForm.job_type} onChange={e=>setJobForm(p=>({...p,job_type:e.target.value}))} placeholder="Full-Time" /></div>
+                  </div>
+                  <div className="fr2">
+                    <div className="fgroup" style={{marginBottom:'12px'}}><label>Application Deadline *</label><input type="date" value={jobForm.application_deadline} onChange={e=>setJobForm(p=>({...p,application_deadline:e.target.value}))} /></div>
+                    <div className="fgroup" style={{marginBottom:'12px'}}><label>Status</label><select value={jobForm.status} onChange={e=>setJobForm(p=>({...p,status:e.target.value}))} style={{padding:'10px',border:'1px solid #CBD5E1',borderRadius:'4px'}}><option value="Draft">Draft</option><option value="Published">Published</option><option value="Archived">Archived</option></select></div>
+                  </div>
+                  <div className="fgroup" style={{marginBottom:'12px'}}><label>Job Summary</label><textarea value={jobForm.summary} onChange={e=>setJobForm(p=>({...p,summary:e.target.value}))} placeholder="A short 1-2 sentence overview of the role" rows={2} /></div>
+                  <div className="fgroup" style={{marginBottom:'12px'}}><label>Responsibilities *</label><textarea value={jobForm.responsibilities} onChange={e=>setJobForm(p=>({...p,responsibilities:e.target.value}))} placeholder="List of responsibilities" rows={3} /></div>
+                  <div className="fgroup" style={{marginBottom:'12px'}}><label>Requirements *</label><textarea value={jobForm.requirements} onChange={e=>setJobForm(p=>({...p,requirements:e.target.value}))} placeholder="List of requirements" rows={3} /></div>
+                  <div className="fgroup" style={{marginBottom:'12px'}}><label>Qualifications *</label><textarea value={jobForm.qualifications} onChange={e=>setJobForm(p=>({...p,qualifications:e.target.value}))} placeholder="Qualifications" rows={2} /></div>
+                  <div className="fgroup" style={{marginBottom:'12px'}}><label>Internal Notes</label><textarea value={jobForm.internal_notes} onChange={e=>setJobForm(p=>({...p,internal_notes:e.target.value}))} placeholder="For internal HR use" rows={2} /></div>
+                  <div style={{display:'flex',gap:'10px'}}>
+                    <button className="btnprimary" onClick={createJob}>{editingJob ? 'Update Job' : 'Create Job'}</button>
+                    <button onClick={()=>{setShowJobForm(false);setEditingJob(null);setJobForm({title:'',department:'',location:'',job_type:'',summary:'',responsibilities:'',requirements:'',qualifications:'',application_deadline:'',expiry_date:'',internal_notes:'',status:'Draft'});}} style={{background:'none',border:'1px solid #CBD5E1',color:'#64748B'}}>Cancel</button>
+                  </div>
+                </div>
+              )}
+              
+              <div className="panel" style={{marginBottom:'24px'}}>
+                <div className="ph"><h3 className="ptitle">JOB POSTINGS</h3></div>
+                <table className="atable" style={{width:'100%'}}>
+                  <thead><tr><th>JOB TITLE</th><th>DEPARTMENT</th><th>LOCATION</th><th>DEADLINE</th><th>STATUS</th><th>ACTIONS</th></tr></thead>
+                  <tbody>
+                    {jobs.map(j=>(
+                      <tr key={j.id}>
+                        <td><p className="atitle">{j.title}</p></td>
+                        <td><span className="cpill">{j.department}</span></td>
+                        <td><span className="cpill" style={{background:'#F1F5F9',color:'#475569'}}>{j.location}</span></td>
+                        <td style={{fontSize:'13px',color:'#94A3B8'}}>{new Date(j.application_deadline).toLocaleDateString()}</td>
+                        <td><select value={j.status} onChange={e => updateJobStatus(j.id, e.target.value)} style={{padding:'6px 10px',border:'1px solid #CBD5E1',borderRadius:'4px',fontSize:'13px',cursor:'pointer',background:'white'}}><option value="Draft">Draft</option><option value="Published">Published</option><option value="Archived">Archived</option></select></td>
+                        <td><button className="dicon" onClick={()=>editJob(j)}>✏️</button><button className="dicon" onClick={()=>deleteJob(j.id)}>🗑</button></td>
+                      </tr>
+                    ))}
+                    {jobs.length===0 && <tr><td colSpan={6} style={{padding:'40px',textAlign:'center',color:'#94A3B8'}}>No job postings found.</td></tr>}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="panel">
+                <div className="ph">
+                  <h3 className="ptitle">JOB APPLICATIONS ({applications.length})</h3>
+                  {applications.length > 0 && (
+                    <button 
+                      onClick={clearAllApplications}
+                      style={{background:'#FEF2F2',color:'#EF4444',border:'1px solid #FEE2E2',padding:'6px 12px',borderRadius:'4px',fontSize:'12px',fontWeight:700,cursor:'pointer'}}
+                    >
+                      CLEAR ALL
+                    </button>
+                  )}
+                </div>
+                <table className="atable" style={{width:'100%'}}>
+                  <thead><tr><th>APPLICANT</th><th>APPLIED FOR</th><th>DEGREE</th><th>NYSC</th><th>DATE</th><th>ACTIONS</th></tr></thead>
+                  <tbody>
+                    {applications.map(app=>(
+                      <React.Fragment key={app.id}>
+                        <tr style={{cursor:'pointer'}} onClick={()=>setExpandedAppId(expandedAppId===app.id?null:app.id)}>
+                          <td><p className="atitle">{app.full_name}</p><a href={`mailto:${app.email}`} style={{fontSize:'12px',color:'#3B82F6'}} onClick={e=>e.stopPropagation()}>{app.email}</a></td>
+                          <td><span className="cpill" style={{background:'#FEF2F2',color:'#FB0202'}}>{app.job_id ? (jobs.find(j=>j.id===app.job_id)?.title || `Job #${app.job_id}`) : 'Talent Pool'}</span></td>
+                          <td style={{fontSize:'13px'}}>{app.highest_qualification}</td>
+                          <td><span className="cpill" style={{background:app.nysc_status==='YES'?'#ECFDF5':'#F8FAFC',color:app.nysc_status==='YES'?'#10B981':'#475569'}}>{app.nysc_status}</span></td>
+                          <td style={{fontSize:'13px',color:'#94A3B8'}}>{new Date(app.created_at).toLocaleDateString()}</td>
+                          <td>
+                            <div style={{display:'flex',gap:'10px',alignItems:'center'}}>
+                                <a href={resolveImageUrl(app.cv_path)} target="_blank" rel="noreferrer" style={{color:'#6366F1',fontSize:'13px',textDecoration:'none',fontWeight:600}} onClick={e=>e.stopPropagation()}>CV ↗</a>
+                                {app.certifications_path && <a href={resolveImageUrl(app.certifications_path)} target="_blank" rel="noreferrer" style={{color:'#6366F1',fontSize:'13px',textDecoration:'none',fontWeight:600}} onClick={e=>e.stopPropagation()}>Cert ↗</a>}
+                                <button className="dicon" style={{color:'#EF4444'}} onClick={(e)=>{e.stopPropagation(); deleteApplication(app.id);}}>🗑</button>
+                                <span style={{fontSize:'14px',color:'#94A3B8'}}>{expandedAppId===app.id?'▴':'▾'}</span>
+                            </div>
+                          </td>
+                        </tr>
+                        {expandedAppId === app.id && (
+                          <tr>
+                            <td colSpan={6} style={{padding:'20px',background:'#F8FAFC'}}>
+                               <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit, minmax(200px,1fr))',gap:'20px'}}>
+                                  <div>
+                                    <p style={{fontSize:'11px',fontWeight:700,color:'#94A3B8',marginBottom:'4px'}}>CONTACT</p>
+                                    <p style={{fontSize:'13.5px'}}>{app.phone}</p>
+                                  </div>
+                                  <div>
+                                    <p style={{fontSize:'11px',fontWeight:700,color:'#94A3B8',marginBottom:'4px'}}>NATIONALITY / GENDER</p>
+                                    <p style={{fontSize:'13.5px'}}>{app.nationality} • {app.gender}</p>
+                                  </div>
+                                  <div>
+                                    <p style={{fontSize:'11px',fontWeight:700,color:'#94A3B8',marginBottom:'4px'}}>DATE OF BIRTH</p>
+                                    <p style={{fontSize:'13.5px'}}>{new Date(app.dob).toLocaleDateString()}</p>
+                                  </div>
+                                  <div>
+                                    <p style={{fontSize:'11px',fontWeight:700,color:'#94A3B8',marginBottom:'4px'}}>INSTITUTION / COURSE</p>
+                                    <p style={{fontSize:'13.5px',fontWeight:600}}>{app.institution}</p>
+                                    <p style={{fontSize:'12px',color:'#64748B'}}>{app.course_of_study}</p>
+                                  </div>
+                               </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    ))}
+                    {applications.length===0 && <tr><td colSpan={6} style={{padding:'40px',textAlign:'center',color:'#94A3B8'}}>No applications received yet.</td></tr>}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
           {activeNav==='Newsletter'&&(
             <div>
               <div className="cheader"><div><h1 className="ctitle">Newsletter Management</h1><p className="csub">Send updates to newsletter subscribers.</p></div></div>
               <div className="dgrid">
                 <div className="panel">
                   <div className="ph"><h3 className="ptitle">SUBSCRIBERS</h3><span className="live">{subscribers.length}</span></div>
+                  <div style={{padding:'20px', borderBottom:'1px solid var(--border)', background:'#F8FAFC'}}>
+                    <div style={{display:'flex', gap:'10px'}}>
+                      <input 
+                        style={{flex:1, padding:'8px 12px', border:'1.5px solid var(--border)', borderRadius:'6px', fontSize:'14px'}}
+                        placeholder="Add subscriber email..."
+                        value={newSubEmail}
+                        onChange={e => setNewSubEmail(e.target.value)}
+                      />
+                      <button 
+                        className="btnprimary" 
+                        style={{padding:'8px 20px'}}
+                        onClick={addSubscriber}
+                        disabled={!newSubEmail.includes('@')}
+                      >
+                        Add
+                      </button>
+                    </div>
+                  </div>
                   <div style={{maxHeight:'300px',overflowY:'auto'}}>
                     {subscribers.length === 0 ? (
                       <p style={{padding:'20px',textAlign:'center',color:'#94A3B8'}}>No subscribers yet.</p>
@@ -690,6 +1117,13 @@ export default function AdminDashboard() {
                             <p style={{fontSize:'14px',fontWeight:600,color:'var(--text-heading)'}}>{sub.email}</p>
                             <p style={{fontSize:'12px',color:'var(--slate-400)'}}>{new Date(sub.created_at).toLocaleDateString()}</p>
                           </div>
+                          <button 
+                            className="dicon" 
+                            style={{color:'#EF4444', padding:'8px', background:'transparent', border:'none', cursor:'pointer'}} 
+                            onClick={() => removeSubscriber(sub.id)}
+                          >
+                            🗑️
+                          </button>
                         </div>
                       ))
                     )}
@@ -732,12 +1166,44 @@ export default function AdminDashboard() {
           {activeNav==='Settings'&&(
             <div>
               <div className="cheader"><div><h1 className="ctitle">Settings</h1><p className="csub">Manage account and website settings.</p></div></div>
-              <div className="panel" style={{padding:'32px'}}>
+              <div className="panel" style={{padding:'32px', maxWidth: '800px'}}>
                 <h3 style={{fontFamily:'var(--font-display)',fontSize:'18px',fontWeight:800,marginBottom:'20px',color:'var(--text-heading)'}}>Account Information</h3>
-                <div className="fr2"><div className="fgroup"><label>Email Address</label><input defaultValue={userEmail()||'admin@rewajcorporate.com'} readOnly /></div><div className="fgroup"><label>Full Name</label><input defaultValue="Admin User" readOnly /></div></div>
-                <div className="fgroup"><label>Change Password (Coming Soon)</label><input type="password" placeholder="••••••••" disabled /></div>
-                <button className="btnprimary" style={{marginTop:'8px', opacity: 0.5, cursor: 'not-allowed'}}>Save Changes</button>
-                <div style={{marginTop:'32px',paddingTop:'32px',borderTop:'1px solid var(--border)'}}>
+                <div className="fr2">
+                  <div className="fgroup">
+                    <label>Email Address</label>
+                    <input value={profileForm.email} onChange={e=>setProfileForm(p=>({...p,email:e.target.value}))} placeholder="admin@rewajcorporate.com" />
+                  </div>
+                  <div className="fgroup">
+                    <label>Full Name</label>
+                    <input value={profileForm.full_name} onChange={e=>setProfileForm(p=>({...p,full_name:e.target.value}))} placeholder="Admin User" />
+                  </div>
+                </div>
+                <button className="btnprimary" style={{marginTop:'16px'}} onClick={updateProfile} disabled={savingProfile}>
+                  {savingProfile ? 'Saving...' : 'Update Profile'}
+                </button>
+
+                <div style={{marginTop:'40px',paddingTop:'40px',borderTop:'1px solid var(--border)'}}>
+                  <h3 style={{fontFamily:'var(--font-display)',fontSize:'18px',fontWeight:800,marginBottom:'20px',color:'var(--text-heading)'}}>Change Password</h3>
+                  <div className="fgroup" style={{marginBottom:'16px'}}>
+                    <label>Current Password</label>
+                    <input type="password" value={passwordForm.old_password} onChange={e=>setPasswordForm(p=>({...p,old_password:e.target.value}))} placeholder="••••••••" />
+                  </div>
+                  <div className="fr2">
+                    <div className="fgroup">
+                      <label>New Password</label>
+                      <input type="password" value={passwordForm.new_password} onChange={e=>setPasswordForm(p=>({...p,new_password:e.target.value}))} placeholder="••••••••" />
+                    </div>
+                    <div className="fgroup">
+                      <label>Confirm New Password</label>
+                      <input type="password" value={passwordForm.confirm_password} onChange={e=>setPasswordForm(p=>({...p,confirm_password:e.target.value}))} placeholder="••••••••" />
+                    </div>
+                  </div>
+                  <button className="btnprimary" style={{marginTop:'16px'}} onClick={changePassword} disabled={changingPass}>
+                    {changingPass ? 'Checking...' : 'Change Password'}
+                  </button>
+                </div>
+
+                <div style={{marginTop:'40px',paddingTop:'40px',borderTop:'1px solid var(--border)'}}>
                   <h3 style={{fontFamily:'var(--font-display)',fontSize:'18px',fontWeight:800,marginBottom:'16px',color:'#EF4444'}}>Danger Zone</h3>
                   <button onClick={logout} style={{background:'none',border:'1.5px solid #EF4444',color:'#EF4444',padding:'10px 24px',borderRadius:'4px',fontWeight:600,cursor:'pointer',fontSize:'14px',transition:'all 0.2s'}}>Sign Out</button>
                 </div>

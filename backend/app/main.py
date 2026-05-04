@@ -6,7 +6,7 @@ from sqlalchemy import text
 
 from app.core.config import settings
 from app.core.database import engine, Base
-from app.api import contact, auth, services, admin, newsletter
+from app.api import contact, auth, services, admin, newsletter, career
 from app.api.blog_projects import blog_router, projects_router
 from seed_content import seed
 
@@ -26,12 +26,21 @@ async def ensure_project_status_column(conn):
         await conn.execute(text("ALTER TABLE projects ADD COLUMN status VARCHAR(20) DEFAULT 'active'"))
         await conn.execute(text("UPDATE projects SET status='active' WHERE status IS NULL"))
 
+async def ensure_job_id_nullable(conn):
+    dialect = conn.dialect.name
+    if dialect == "postgresql":
+        try:
+            await conn.execute(text("ALTER TABLE job_applications ALTER COLUMN job_id DROP NOT NULL;"))
+        except Exception as e:
+            print(f"Skipping job_id ALTER: {e}")
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Create tables and run migrations on startup
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
         await ensure_project_status_column(conn)
+        await ensure_job_id_nullable(conn)
     
     # Run seeding logic (creates admin + initial content if database is empty)
     try:
@@ -68,6 +77,7 @@ app.include_router(admin.router, prefix="/api/admin", tags=["Admin"])
 app.include_router(blog_router, prefix="/api/blog", tags=["Blog"])
 app.include_router(projects_router, prefix="/api/projects", tags=["Projects"])
 app.include_router(newsletter.router, prefix="/api/newsletter", tags=["Newsletter"])
+app.include_router(career.router, prefix="/api/careers", tags=["Careers"])
 
 # Direct upload route to match frontend
 from app.api.admin import upload_file

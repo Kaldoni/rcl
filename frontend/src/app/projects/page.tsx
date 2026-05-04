@@ -49,6 +49,7 @@ const tagColors: Record<string, string> = {
 export default function ProjectsPage() {
   const [active, setActive] = useState('All Projects');
   const [projects, setProjects] = useState<Project[]>(initialProjects);
+  const [visibleCount, setVisibleCount] = useState(6);
 
   useEffect(() => {
     async function loadProjects() {
@@ -106,7 +107,10 @@ export default function ProjectsPage() {
                 <button
                   key={cat}
                   className={`filter-tab${active === cat ? ' active' : ''}`}
-                  onClick={() => setActive(cat)}
+                  onClick={() => {
+                    setActive(cat);
+                    setVisibleCount(6); // Reset pagination on category change
+                  }}
                 >
                   {cat}
                 </button>
@@ -119,7 +123,7 @@ export default function ProjectsPage() {
         <section className="projects-section">
           <div className="container">
             <div className="projects-grid">
-              {filtered.map(project => {
+              {filtered.slice(0, visibleCount).map(project => {
                 const statusLabel = project.status === 'executed' ? 'Completed' : 'On-going';
                 return (
                   <Link key={project.id} href={`/projects/${project.slug}`} className="project-card">
@@ -131,7 +135,11 @@ export default function ProjectsPage() {
                     </div>
                     <div className="project-card__body">
                       <h3 className="project-card__title">{project.title}</h3>
-                      <p className="project-card__desc">{project.description || project.desc || ''}</p>
+                      <p className="project-card__desc">
+                        {(project.description || project.desc || '').length > 120 
+                          ? `${(project.description || project.desc || '').substring(0, 120)}...` 
+                          : (project.description || project.desc || '')}
+                      </p>
                       <div className="project-card__footer">
                         <span className="project-card__year">🕐 {statusLabel}{project.completion_year ? ` · ${project.completion_year}` : ''}</span>
                       </div>
@@ -141,9 +149,27 @@ export default function ProjectsPage() {
               })}
             </div>
 
-            <div className="load-more">
-              <button className="load-more-btn">Load More Projects ↓</button>
-            </div>
+            {(filtered.length > visibleCount || visibleCount > 6) && (
+              <div className="load-more" style={{ display: 'flex', justifyContent: 'center', gap: '16px', flexWrap: 'wrap' }}>
+                {filtered.length > visibleCount && (
+                  <button 
+                    className="load-more-btn"
+                    onClick={() => setVisibleCount(prev => prev + 6)}
+                  >
+                    Load More Projects ↓
+                  </button>
+                )}
+                {visibleCount > 6 && (
+                  <button 
+                    className="load-more-btn"
+                    onClick={() => setVisibleCount(6)}
+                    style={{ borderColor: 'var(--slate-300)' }}
+                  >
+                    See Less ↑
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         </section>
 
@@ -172,12 +198,14 @@ export default function ProjectsPage() {
         </section>
 
         {/* CTA */}
-        <section className="projects-cta">
-          <div className="projects-cta__bg" />
-          <div className="container projects-cta__inner">
-            <h2 className="projects-cta__title">Ready to start your next project with us?</h2>
+        <section className="projects-cta" style={{ borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+          <div className="projects-cta__bg" style={{ opacity: 0.15, background: 'url(/images/project-cta-image.jpeg) center/cover' }} />
+          <div className="container projects-cta__inner" style={{ position: 'relative', zIndex: 1 }}>
+            <h2 className="projects-cta__title" style={{ fontWeight: 800 }}>Ready to start your next project with us?</h2>
             <br />
-            <p>Our team of certified engineers is ready to provide the technical <br />expertise and operational excellence your facility deserves.</p>
+            <p style={{ color: 'white', fontSize: '18px', fontWeight: 500, lineHeight: 1.6, maxWidth: '800px', margin: '0 auto' }}>
+              Our team of certified engineers is ready to provide the technical <br className="desktop-only" /> expertise and operational excellence your facility deserves.
+            </p>
             <br />
             <br />
             <Link href="/contact" className="btn-red">Get a quote</Link>
