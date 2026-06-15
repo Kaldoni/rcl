@@ -59,10 +59,22 @@ npm run dev
 
 ## 🌐 Production Deployment (Recommended)
 
+### **Database → Supabase**
+1. Create a Supabase project at [supabase.io](https://supabase.io).
+2. Go to **Settings → Database → Connection String**.
+3. Select **Pooler** mode and copy the connection string.
+4. Format for SQLAlchemy async:
+   ```
+   postgresql+asyncpg://postgres.<ref>:<password>@<pooler-host>:5432/postgres?ssl=require
+   ```
+   Replace `<ref>`, `<password>`, and `<pooler-host>` with your values.
+
 ### **Frontend → Vercel**
 1. Connect your repo to **Vercel**.
 2. Set Root Directory to `frontend`.
-3. Add Env Var: `NEXT_PUBLIC_API_URL` (Link to your Render API).
+3. Add Env Var:
+   - `NEXT_PUBLIC_API_URL`: `https://your-render-backend-url.onrender.com`
+4. Deploy and verify at **https://www.rewajcorporate.com**
 
 ### **Backend → Render**
 1. Connect your repo to **Render**.
@@ -70,10 +82,16 @@ npm run dev
 3. Set the Root Directory to `backend`.
 4. Set Build Command: `pip install -r requirements.txt`.
 5. Set Start Command: `uvicorn app.main:app --host 0.0.0.0 --port 10000`.
-6. **IMPORTANT**: Create a **PostgreSQL** instance on Render and paste its Internal DB URL into the `DATABASE_URL` environment variable.
+6. Add Environment Variables:
+   - `DATABASE_URL`: Your Supabase connection string (see above).
+   - `SECRET_KEY`: Generate a secure random key (use `openssl rand -hex 32`).
+   - `ADMIN_EMAIL_DEFAULT`: `admin@rewajcorporate.com`
+   - `ADMIN_PASSWORD_DEFAULT`: Change after first login (do NOT commit).
+   - `SENDGRID_API_KEY` or SMTP credentials for email.
+7. Deploy and monitor logs for any errors.
 
 ### **Database Persistence**
-The system is pre-configured to automatically handle Render's PostgreSQL connection strings. No code changes are required—just paste the URL in the Environment Variables!
+The system is pre-configured to automatically handle Supabase's PostgreSQL connection strings. No code changes required—just ensure SSL is enabled (`?ssl=require` in the connection string). The admin user and schema are created automatically on first deployment via the seeding script.
 
 ---
 
