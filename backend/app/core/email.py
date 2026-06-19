@@ -1,5 +1,6 @@
 import aiosmtplib
 from email.message import EmailMessage
+import httpx
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
 from app.core.config import settings
@@ -7,7 +8,7 @@ from app.models.content import ContactSubmission, NewsletterSubscription
 from app.models.job import JobApplication
 
 async def send_email_async(to_email: str, subject: str, content: str):
-    """Unified helper to send email via SMTP (priority) or SendGrid."""
+    """Unified helper to send email via SMTP (priority), Brevo, or SendGrid."""
     # Try SMTP first if configured
     if settings.SMTP_USER and settings.SMTP_PASSWORD:
         message = EmailMessage()
@@ -28,9 +29,36 @@ async def send_email_async(to_email: str, subject: str, content: str):
             return True, None
         except Exception as e:
             return False, f"SMTP Error: {str(e)}"
-            
+
+    # Use Brevo if configured
+    if settings.BREVO_API_KEY:
+        try:
+            async with httpx.AsyncClient(timeout=30) as client:
+                response = await client.post(
+                    "https://api.brevo.com/v3/smtp/email",
+                    headers={
+                        "api-key": settings.BREVO_API_KEY,
+                        "Content-Type": "application/json",
+                        "Accept": "application/json",
+                    },
+                    json={
+                        "sender": {
+                            "email": settings.FROM_EMAIL,
+                            "name": "Rewaj Corporate Limited"
+                        },
+                        "to": [{"email": to_email}],
+                        "subject": subject,
+                        "textContent": content,
+                    },
+                )
+            if 200 <= response.status_code < 300:
+                return True, None
+            return False, f"Brevo Error: {response.status_code} {response.text}"
+        except Exception as e:
+            return False, f"Brevo Error: {str(e)}"
+
     # Fallback to SendGrid if API Key is present
-    elif settings.SENDGRID_API_KEY:
+    if settings.SENDGRID_API_KEY:
         sg = SendGridAPIClient(settings.SENDGRID_API_KEY)
         message = Mail(
             from_email=settings.FROM_EMAIL,
@@ -39,16 +67,13 @@ async def send_email_async(to_email: str, subject: str, content: str):
             plain_text_content=content
         )
         try:
-            # Note: SendGrid's SDK is technically synchronous, 
-            # but we'll wrap it in a pseudo-async call for consistency.
             response = sg.send(message)
             if 200 <= response.status_code < 300:
                 return True, None
-            else:
-                return False, f"SendGrid Error: {response.status_code}"
+            return False, f"SendGrid Error: {response.status_code}"
         except Exception as e:
             return False, f"SendGrid Error: {str(e)}"
-            
+
     return False, "No email provider configured"
 
 async def send_contact_notification(submission: ContactSubmission):
@@ -65,11 +90,16 @@ async def send_contact_notification(submission: ContactSubmission):
     ---
     This email was sent automatically from Rewaj Corporate Limited portal.
     """
-    await send_email_async(
-        to_email=settings.ADMIN_EMAIL or settings.ADMIN_EMAIL_DEFAULT,
+    to_email = settings.ADMIN_EMAIL or settings.ADMIN_EMAIL_DEFAULT
+    success, error = await send_email_async(
+        to_email=to_email,
         subject=f"New Contact: {submission.subject or 'General Inquiry'}",
         content=message_text
     )
+    if success:
+        print(f"✓ Contact email sent to {to_email}")
+    else:
+        print(f"✗ Contact email FAILED to {to_email}: {error}")
 
 async def send_newsletter_notification(subscription: NewsletterSubscription):
     admin_content = (
@@ -84,8 +114,17 @@ async def send_newsletter_notification(subscription: NewsletterSubscription):
         "If you did not request this subscription, please ignore this email."
     )
 
-    await send_email_async(settings.ADMIN_EMAIL, "New Newsletter Subscriber", admin_content)
-    await send_email_async(subscription.email, "You're subscribed to Industry Insights", confirmation_content)
+    success1, error1 = await send_email_async(settings.ADMIN_EMAIL, "New Newsletter Subscriber", admin_content)
+    if success1:
+        print(f"✓ Newsletter admin notification sent to {settings.ADMIN_EMAIL}")
+    else:
+        print(f"✗ Newsletter admin notification FAILED to {settings.ADMIN_EMAIL}: {error1}")
+    
+    success2, error2 = await send_email_async(subscription.email, "You're subscribed to Industry Insights", confirmation_content)
+    if success2:
+        print(f"✓ Newsletter confirmation sent to {subscription.email}")
+    else:
+        print(f"✗ Newsletter confirmation FAILED to {subscription.email}: {error2}")
 
 async def send_bulk_newsletter(subscribers, subject: str, content: str):
     success_count = 0
@@ -138,7 +177,10 @@ async def send_career_notification(application: JobApplication, job_title: str):
             content=message_text
         )
 
-        if not success:
+        if success:
+            print(f"✓ Career application email sent to {recipient}")
+        else:
+            print(f"✗ Career application email FAILED to {recipient}: {error}")
             delivery_errors.append(f"{recipient}: {error}")
 
     if delivery_errors:
