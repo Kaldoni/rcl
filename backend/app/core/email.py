@@ -1,8 +1,6 @@
 import aiosmtplib
 from email.message import EmailMessage
-import asyncio
-import sib_api_v3_sdk
-from sib_api_v3_sdk.rest import ApiException
+import httpx
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
 from app.core.config import settings
@@ -35,25 +33,28 @@ async def send_email_async(to_email: str, subject: str, content: str):
     # Use Brevo if configured
     if settings.BREVO_API_KEY:
         try:
-            configuration = sib_api_v3_sdk.Configuration()
-            configuration.api_key["api-key"] = settings.BREVO_API_KEY
-            api_client = sib_api_v3_sdk.ApiClient(configuration)
-            api_instance = sib_api_v3_sdk.TransactionalEmailsApi(api_client)
-            message = sib_api_v3_sdk.SendSmtpEmail(
-                sender={"email": settings.FROM_EMAIL, "name": "Rewaj Corporate Limited"},
-                to=[{"email": to_email}],
-                subject=subject,
-                text_content=content,
-            )
-
-            try:
-                response = await asyncio.to_thread(api_instance.send_transac_email, message)
-            finally:
-                api_client.close()
-
-            return True, None
-        except ApiException as e:
-            return False, f"Brevo Error: {e.status} {e.body}"
+            async with httpx.AsyncClient(timeout=30) as client:
+                response = await client.post(
+                    "https://api.brevo.com/v3/smtp/email",
+                    headers={
+                        "api-key": settings.BREVO_API_KEY,
+                        "Content-Type": "application/json",
+                        "Accept": "application/json",
+                    },
+                    json={
+                        "sender": {
+                            "email": settings.FROM_EMAIL,
+                            "name": "Rewaj Corporate Limited"
+                        },
+                        "to": [{"email": to_email}],
+                        "subject": subject,
+                        "textContent": content,
+                        "htmlContent": content.replace("\n", "<br />"),
+                    },
+                )
+            if 200 <= response.status_code < 300:
+                return True, None
+            return False, f"Brevo Error: {response.status_code} {response.text}"
         except Exception as e:
             return False, f"Brevo Error: {str(e)}"
 
