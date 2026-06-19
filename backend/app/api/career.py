@@ -110,14 +110,10 @@ async def apply_to_job(
     await db.commit()
     await db.refresh(application)
     
-    # Notify admin
+    # Notify careers team
     try:
         job_title = job.title if job else "Talent Pool Submission"
-        await send_career_notification(
-            application_name=full_name,
-            application_email=email,
-            job_title=job_title
-        )
+        await send_career_notification(application, job_title)
     except Exception as e:
         print(f"Error triggering career notification: {e}")
     

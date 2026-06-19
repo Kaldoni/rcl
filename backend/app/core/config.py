@@ -45,6 +45,7 @@ class Settings(BaseSettings):
     
     FROM_EMAIL: str = "noreply@rewajcorporate.com"
     ADMIN_EMAIL: str = "info@rewajcorporate.com"
+    CAREER_EMAIL: str = "careers@rewajcorporate.com"
 
     # Admin
     ADMIN_EMAIL_DEFAULT: str = "info@rewajcorporate.com"

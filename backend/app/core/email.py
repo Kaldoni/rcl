@@ -4,6 +4,7 @@ from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
 from app.core.config import settings
 from app.models.content import ContactSubmission, NewsletterSubscription
+from app.models.job import JobApplication
 
 async def send_email_async(to_email: str, subject: str, content: str):
     """Unified helper to send email via SMTP (priority) or SendGrid."""
@@ -65,7 +66,7 @@ async def send_contact_notification(submission: ContactSubmission):
     This email was sent automatically from Rewaj Corporate Limited portal.
     """
     await send_email_async(
-        to_email=settings.ADMIN_EMAIL,
+        to_email=settings.ADMIN_EMAIL or settings.ADMIN_EMAIL_DEFAULT,
         subject=f"New Contact: {submission.subject or 'General Inquiry'}",
         content=message_text
     )
@@ -99,23 +100,46 @@ async def send_bulk_newsletter(subscribers, subject: str, content: str):
             
     return success_count, errors
 
-async def send_career_notification(application_name: str, application_email: str, job_title: str):
+async def send_career_notification(application: JobApplication, job_title: str):
     message_text = f"""
     New Job Application Received:
-    
-    Name: {application_name}
-    Email: {application_email}
-    Subject Job: {job_title}
-    
-    Please log in to the admin dashboard to review the CV and certifications.
+
+    Name: {application.full_name}
+    Email: {application.email}
+    Phone: {application.phone or 'N/A'}
+    Date of Birth: {application.dob}
+    Gender: {application.gender}
+    Nationality: {application.nationality}
+    Highest Qualification: {application.highest_qualification}
+    Institution: {application.institution}
+    Course of Study: {application.course_of_study}
+    NYSC Status: {application.nysc_status}
+    Job Applied For: {job_title}
+    CV Link: {application.cv_path or 'N/A'}
+    Certifications Link: {application.certifications_path or 'N/A'}
+
+    Please log in to the admin dashboard to review the application details.
     https://rewajcorporate.com/admin/careers/applications
-    
+
     ---
     This email was sent automatically from Rewaj Corporate Limited portal.
     """
-    
-    await send_email_async(
-        to_email="careers@rewajcorporate.com", 
-        subject=f"New Application: {job_title} - {application_name}",
-        content=message_text
-    )
+
+    recipients = [settings.CAREER_EMAIL, settings.ADMIN_EMAIL]
+    delivery_errors = []
+
+    for recipient in recipients:
+        if not recipient:
+            continue
+
+        success, error = await send_email_async(
+            to_email=recipient,
+            subject=f"New Application: {job_title} - {application.full_name}",
+            content=message_text
+        )
+
+        if not success:
+            delivery_errors.append(f"{recipient}: {error}")
+
+    if delivery_errors:
+        raise RuntimeError("; ".join(delivery_errors))
